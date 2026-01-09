@@ -1,6 +1,6 @@
 using './main.bicep'
 
-param location = 'eastus'
+param location = 'canadacentral'
 param environmentName = 'testAPContainerEnvironment'
 param acrName = 'salesopttest'
 param appImageTag = 'latest'
