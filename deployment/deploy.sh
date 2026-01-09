@@ -96,10 +96,16 @@ function deploy_infrastructure() {
     # 1. changed appImageTag -> appImageTag
     # 2. added keyVaultName (required by bicep)
     # 3. changed output query to appUrl
-    az deployment group create \
+    az deployment group validate \
       --resource-group "$RESOURCE_GROUP" \
-      --template-file "$BICEP_FILE" \
-      --parameters appImageTag="$IMAGE_TAG" location="$LOCATION" revisionSuffix="$REVISION_SUFFIX" keyVaultName="$KEY_VAULT_NAME"  postgresServerName="$POSTGRES_SERVER_NAME" postgresAdminUser="$POSTGRES_ADMIN_USER"\
+      --template-file ./deployment/main.bicep \
+      --parameters \
+        location="$LOCATION" \
+        environmentName="$AZURE_ENVIRONMENT_NAME" \
+        acrName="$ACR_NAME" \
+        keyVaultName="$KEY_VAULT_NAME" \
+        postgresServerName="$POSTGRES_SERVER_NAME" \
+        postgresAdminUser="$POSTGRES_ADMIN_USER"    \
       --debug \
       --query "properties.outputs.appUrl.value" \
       -o tsv
