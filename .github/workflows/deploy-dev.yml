@@ -21,13 +21,9 @@ env:
   PYTHON_VERSION: "3.11"
 
 jobs:
-  # The 'test' job would go here if you have one
-  # ...
-
   deploy:
     name: Build and Deploy to Azure
     runs-on: ubuntu-latest
-    # needs: test # Uncomment this if you have a 'test' job
     environment:
       name: development
       url: ${{ steps.deploy.outputs.app_url }}
@@ -41,18 +37,44 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_STAGING_CREDENTIALS }}
 
-      # The rest of your deploy job steps remain the same...
       - name: Set Correct Subscription Context
+        shell: bash
         run: |
-          # This script ensures the correct Azure subscription is used
+          set -euo pipefail
           SUBSCRIPTION_ID=$(az account show --query id -o tsv)
           FOUND_SUB_ID=$(az group list --query "[?name=='${{ env.AZURE_RESOURCE_GROUP }}'].id" -o tsv | cut -d'/' -f3 | head -n 1)
+
           if [[ -n "$FOUND_SUB_ID" && "$FOUND_SUB_ID" != "$SUBSCRIPTION_ID" ]]; then
             echo "Resource group found in a different subscription. Switching..."
             az account set --subscription "$FOUND_SUB_ID"
           fi
+
           echo "Using subscription:"
           az account show --output table
+
+      # IMPORTANT: bicep build in CI so BCP236 is caught before deployment
+      - name: Install Bicep CLI
+        shell: bash
+        run: |
+          set -euo pipefail
+          az bicep install
+          az bicep version
+
+      - name: Bicep - Build (syntax check)
+        shell: bash
+        run: |
+          set -euo pipefail
+          bicep build ./deployment/main.bicep
+
+      # Optional but very helpful: validate at RG scope (catches missing params, wrong API versions)
+      - name: Bicep - Validate (resource group)
+        shell: bash
+        run: |
+          set -euo pipefail
+          az deployment group validate \
+            --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
+            --template-file ./deployment/main.bicep \
+            --parameters ./deployment/config.dev.sh
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -62,15 +84,43 @@ jobs:
 
       - name: Deploy to Azure Container Apps
         id: deploy
+        shell: bash
         run: |
+          set -euo pipefail
           cd deployment
           chmod +x ./deploy.sh
-          APP_URL=$(./deploy.sh --environment dev | tail -n 1)
+
+          echo "Running deploy.sh..."
+          APP_URL=$(./deploy.sh --environment dev | tee /tmp/deploy.log | tail -n 1)
+
+          echo "Deployment output tail:"
+          tail -n 50 /tmp/deploy.log || true
+
           {
             echo "app_url<<EOF"
             echo "$APP_URL"
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
+
+      # If deployment scripts fail, these logs are usually the fastest way to see why
+      - name: Dump deployment script logs (pgvector bootstrap) on failure
+        if: failure()
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Listing deploymentScripts in RG..."
+          az resource list \
+            -g "${{ env.AZURE_RESOURCE_GROUP }}" \
+            --resource-type "Microsoft.Resources/deploymentScripts" \
+            --query "[].{name:name, state:properties.provisioningState}" -o table || true
+
+          echo "Showing latest deploymentScript log output (if any)..."
+          # adjust script name if you changed it in bicep
+          SCRIPT_NAME="init-lightrag-pgvector"
+          az deployment-scripts show \
+            -g "${{ env.AZURE_RESOURCE_GROUP }}" \
+            -n "$SCRIPT_NAME" \
+            --query "{name:name, state:properties.provisioningState, status:properties.status, logs:properties.outputs}" -o json || true
 
   cleanup-on-failure:
     name: Cleanup on Failure
@@ -85,14 +135,15 @@ jobs:
           creds: ${{ secrets.AZURE_STAGING_CREDENTIALS }}
 
       - name: Check and cleanup failed deployments
+        shell: bash
         run: |
+          set -euo pipefail
           APP_NAME="${{ env.APP_NAME_LIGHTRAG }}"
           echo "Checking $APP_NAME for unhealthy revisions..."
 
-          # List revisions that are unhealthy
           az containerapp revision list \
             --name "$APP_NAME" \
-            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
             --query "[?properties.healthState=='Unhealthy'].name" -o tsv | \
           while read -r revision; do
             if [[ -n "$revision" ]]; then
