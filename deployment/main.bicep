@@ -113,37 +113,108 @@ resource lightRAG 'Microsoft.App/containerApps@2023-05-01' = {
           }
           env: [
             // --- Server Configuration ---
-            { name: 'HOST' value: '0.0.0.0' }
-            { name: 'PORT' value: '9621' }
-            { name: 'LIGHTRAG_API_KEY' secretRef: 'lightrag-api-key' }
-            { name: 'LIGHTRAG_KV_STORAGE' value: 'PGKVStorage' }
-            { name: 'LIGHTRAG_DOC_STATUS_STORAGE' value: 'PGDocStatusStorage' }
-            { name: 'LIGHTRAG_GRAPH_STORAGE' value: 'NetworkXStorage' }
-            { name: 'LIGHTRAG_VECTOR_STORAGE' value: 'PGVectorStorage' }
+            { 
+              name: 'HOST' 
+              value: '0.0.0.0' 
+            }
+            { 
+              name: 'PORT' 
+              value: '9621' 
+            }
+            { 
+              name: 'LIGHTRAG_API_KEY' 
+              secretRef: 'lightrag-api-key'
+            }
+            { 
+              name: 'LIGHTRAG_KV_STORAGE' 
+              value: 'PGKVStorage' 
+            }
+            { 
+              name: 'LIGHTRAG_DOC_STATUS_STORAGE' 
+              value: 'PGDocStatusStorage' 
+            }
+            { 
+              name: 'LIGHTRAG_GRAPH_STORAGE' 
+              value: 'NetworkXStorage' 
+            }
+            { 
+              name: 'LIGHTRAG_VECTOR_STORAGE' 
+              value: 'PGVectorStorage' 
+            }
+            { 
+              name: 'POSTGRES_HOST' 
+              value: postgresHost 
+            }
+            { 
+              name: 'POSTGRES_PORT' 
+              value: '5432' 
+            }
+            { 
+              name: 'POSTGRES_USER' 
+              value: postgresAdminUser 
+            }
+            { 
+              name: 'POSTGRES_PASSWORD' 
+              secretRef: 'postgres-admin-password' 
+            }
+            { 
+              name: 'POSTGRES_DATABASE' 
+              value: 'lightrag' 
+            }
+            { 
+              name: 'POSTGRES_MAX_CONNECTIONS' 
+              value: '12' 
+            }
+            { 
+              name: 'POSTGRES_SSL_MODE' 
+              value: 'require' 
+            }
+            { 
+              name: 'LLM_BINDING' 
+              value: 'openai' 
+            }
+            { 
+              name: 'LLM_MODEL' 
+              value: 'gpt-4o' 
+            }
+            { 
+              name: 'LLM_BINDING_API_KEY' 
+              secretRef: 'openai-api-key' 
+            }
 
-            { name: 'POSTGRES_HOST' value: postgresHost }
-            { name: 'POSTGRES_PORT' value: '5432' }
-            { name: 'POSTGRES_USER' value: postgresAdminUser }
-            { name: 'POSTGRES_PASSWORD' secretRef: 'postgres-admin-password' }
-            { name: 'POSTGRES_DATABASE' value: 'lightrag' }
-            { name: 'POSTGRES_MAX_CONNECTIONS' value: '12' }
-            { name: 'POSTGRES_SSL_MODE' value: 'require' }
+            { 
+              name: 'EMBEDDING_BINDING' 
+              value: 'openai' 
+            }
+            { 
+              name: 'EMBEDDING_MODEL' 
+              value: 'text-embedding-3-large' 
+            }
+            { 
+              name: 'EMBEDDING_DIM' 
+              value: '3072' 
+            }
+            { 
+              name: 'EMBEDDING_SEND_DIM' 
+              value: 'false' 
+            }
+            { 
+              name: 'EMBEDDING_BINDING_API_KEY' 
+              secretRef: 'openai-api-key' 
+            }
 
-            { name: 'LLM_BINDING' value: 'openai' }
-            { name: 'LLM_MODEL' value: 'gpt-4o' }
-            { name: 'LLM_BINDING_API_KEY' secretRef: 'openai-api-key' }
-
-            // --- Embeddings ---
-            { name: 'EMBEDDING_BINDING' value: 'openai' }
-            { name: 'EMBEDDING_MODEL' value: 'text-embedding-3-large' }
-            { name: 'EMBEDDING_DIM' value: '3072' }
-            { name: 'EMBEDDING_SEND_DIM' value: 'false' }
-            { name: 'EMBEDDING_BINDING_API_KEY' secretRef: 'openai-api-key' }
-
-            // --- Directories ---
-            { name: 'TIKTOKEN_CACHE_DIR' value: '/app/data/tiktoken' }
-            { name: 'INPUT_DIR' value: '/app/inputs' }
-            { name: 'WORKING_DIR' value: '/app/rag_storage' }
+            { 
+              name: 'TIKTOKEN_CACHE_DIR' 
+              value: '/app/data/tiktoken' 
+            }
+            { 
+              name: 'INPUT_DIR' 
+              value: '/app/inputs' 
+            }
+            { 
+              name: 'WORKING_DIR' 
+              value: '/app/rag_storage' 
+            }
           ]
         }
       ]
