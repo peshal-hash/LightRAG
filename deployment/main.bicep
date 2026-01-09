@@ -9,8 +9,6 @@ param keyVaultName string
 param postgresServerName string
 param postgresAdminUser string
 
-@secure()
-param postgresAdminPassword string
 
 // --- EXISTING RESOURCES ---
 resource acr 'Microsoft.ContainerRegistry/registries@2023-07-01' existing = {
@@ -86,7 +84,6 @@ resource lightRAG 'Microsoft.App/containerApps@2023-05-01' = {
         }
       ]
       secrets: [
-        // Existing secrets
         {
           name: 'lightrag-api-key'
           keyVaultUrl: '${keyVault.properties.vaultUri}secrets/LIGHTRAG-API-KEY'
@@ -100,7 +97,7 @@ resource lightRAG 'Microsoft.App/containerApps@2023-05-01' = {
         {
           name: 'postgres-admin-password'
           keyVaultUrl: '${keyVault.properties.vaultUri}secrets/POSTGRES-PASSWORD'
-          value: postgresAdminPassword
+          identity: managedIdentity.id
         }
       ]
     }
