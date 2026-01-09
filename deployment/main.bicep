@@ -3,7 +3,14 @@ param environmentName string = 'testAPContainerEnvironment'
 param acrName string = 'salesopttest'
 param appImageTag string = 'latest'
 param revisionSuffix string = ''
-param keyVaultName string 
+param keyVaultName string
+
+// Reuse the same Postgres Flexible Server that Activepieces uses
+param postgresServerName string
+param postgresAdminUser string
+
+@secure()
+param postgresAdminPassword string
 
 // --- EXISTING RESOURCES ---
 resource acr 'Microsoft.ContainerRegistry/registries@2023-07-01' existing = {
@@ -20,6 +27,27 @@ resource existingEnvironment 'Microsoft.App/managedEnvironments@2023-05-01' exis
 
 resource keyVault 'Microsoft.KeyVault/vaults@2023-02-01' existing = {
   name: keyVaultName
+}
+
+// Existing Postgres server (same one Activepieces uses)
+resource existingPostgresServer 'Microsoft.DBforPostgreSQL/flexibleServers@2023-03-01-preview' existing = {
+  name: postgresServerName
+}
+
+var postgresHost = existingPostgresServer.properties.fullyQualifiedDomainName
+
+resource lightragDatabase 'Microsoft.DBforPostgreSQL/flexibleServers/databases@2023-03-01-preview' = {
+  parent: existingPostgresServer
+  name: 'lightrag'
+}
+
+resource postgresFirewallRule 'Microsoft.DBforPostgreSQL/flexibleServers/firewallRules@2023-03-01-preview' = {
+  parent: existingPostgresServer
+  name: 'AllowAllWindowsAzureIps'
+  properties: {
+    startIpAddress: '0.0.0.0'
+    endIpAddress: '0.0.0.0'
+  }
 }
 
 // --- LIGHTRAG CONTAINER APP ---
@@ -58,6 +86,7 @@ resource lightRAG 'Microsoft.App/containerApps@2023-05-01' = {
         }
       ]
       secrets: [
+        // Existing secrets
         {
           name: 'lightrag-api-key'
           keyVaultUrl: '${keyVault.properties.vaultUri}secrets/LIGHTRAG-API-KEY'
@@ -67,6 +96,11 @@ resource lightRAG 'Microsoft.App/containerApps@2023-05-01' = {
           name: 'openai-api-key'
           keyVaultUrl: '${keyVault.properties.vaultUri}secrets/OPENAI-API-KEY'
           identity: managedIdentity.id
+        }
+        {
+          name: 'postgres-admin-password'
+          keyVaultUrl: '${keyVault.properties.vaultUri}secrets/POSTGRES-PASSWORD'
+          value: postgresAdminPassword
         }
       ]
     }
@@ -82,66 +116,37 @@ resource lightRAG 'Microsoft.App/containerApps@2023-05-01' = {
           }
           env: [
             // --- Server Configuration ---
-            {
-              name: 'HOST'
-              value: '0.0.0.0'
-            }
-            {
-              name: 'PORT'
-              value: '9621'
-            }
-            {
-              name: 'LIGHTRAG_API_KEY'
-              secretRef: 'lightrag-api-key'
-            }
+            { name: 'HOST' value: '0.0.0.0' }
+            { name: 'PORT' value: '9621' }
+            { name: 'LIGHTRAG_API_KEY' secretRef: 'lightrag-api-key' }
+            { name: 'LIGHTRAG_KV_STORAGE' value: 'PGKVStorage' }
+            { name: 'LIGHTRAG_DOC_STATUS_STORAGE' value: 'PGDocStatusStorage' }
+            { name: 'LIGHTRAG_GRAPH_STORAGE' value: 'NetworkXStorage' }
+            { name: 'LIGHTRAG_VECTOR_STORAGE' value: 'PGVectorStorage' }
 
-            {
-              name: 'LLM_BINDING'
-              value: 'openai'
-            }
-            {
-              name: 'LLM_MODEL'
-              value: 'gpt-4o'
-            }
-            {
-              name: 'LLM_BINDING_API_KEY'
-              secretRef: 'openai-api-key'
-            }
+            { name: 'POSTGRES_HOST' value: postgresHost }
+            { name: 'POSTGRES_PORT' value: '5432' }
+            { name: 'POSTGRES_USER' value: postgresAdminUser }
+            { name: 'POSTGRES_PASSWORD' secretRef: 'postgres-admin-password' }
+            { name: 'POSTGRES_DATABASE' value: 'lightrag' }
+            { name: 'POSTGRES_MAX_CONNECTIONS' value: '12' }
+            { name: 'POSTGRES_SSL_MODE' value: 'require' }
 
-            {
-              name: 'EMBEDDING_BINDING'
-              value: 'openai'
-            }
-            {
-              name: 'EMBEDDING_MODEL'
-              value: 'text-embedding-3-large'
-            }
-            {
-              name: 'EMBEDDING_DIM'
-              value: '3072'
-            }
-            {
-              name: 'EMBEDDING_SEND_DIM'
-              value: 'false'
-            }
-            {
-              name: 'EMBEDDING_BINDING_API_KEY'
-              secretRef: 'openai-api-key'
-            }
+            { name: 'LLM_BINDING' value: 'openai' }
+            { name: 'LLM_MODEL' value: 'gpt-4o' }
+            { name: 'LLM_BINDING_API_KEY' secretRef: 'openai-api-key' }
 
-            // --- Directories (Internal Storage) ---
-            {
-              name: 'TIKTOKEN_CACHE_DIR'
-              value: '/app/data/tiktoken'
-            }
-            {
-              name: 'INPUT_DIR'
-              value: '/app/inputs'
-            }
-            {
-              name: 'WORKING_DIR'
-              value: '/app/rag_storage'
-            }
+            // --- Embeddings ---
+            { name: 'EMBEDDING_BINDING' value: 'openai' }
+            { name: 'EMBEDDING_MODEL' value: 'text-embedding-3-large' }
+            { name: 'EMBEDDING_DIM' value: '3072' }
+            { name: 'EMBEDDING_SEND_DIM' value: 'false' }
+            { name: 'EMBEDDING_BINDING_API_KEY' secretRef: 'openai-api-key' }
+
+            // --- Directories ---
+            { name: 'TIKTOKEN_CACHE_DIR' value: '/app/data/tiktoken' }
+            { name: 'INPUT_DIR' value: '/app/inputs' }
+            { name: 'WORKING_DIR' value: '/app/rag_storage' }
           ]
         }
       ]
@@ -153,5 +158,4 @@ resource lightRAG 'Microsoft.App/containerApps@2023-05-01' = {
   }
 }
 
-// --- OUTPUTS ---
 output appUrl string = lightRAG.properties.configuration.ingress.fqdn

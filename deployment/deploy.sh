@@ -99,7 +99,7 @@ function deploy_infrastructure() {
     az deployment group create \
       --resource-group "$RESOURCE_GROUP" \
       --template-file "$BICEP_FILE" \
-      --parameters appImageTag="$IMAGE_TAG" location="$LOCATION" revisionSuffix="$REVISION_SUFFIX" keyVaultName="$KEY_VAULT_NAME" \
+      --parameters appImageTag="$IMAGE_TAG" location="$LOCATION" revisionSuffix="$REVISION_SUFFIX" keyVaultName="$KEY_VAULT_NAME"  postgresServerName="$POSTGRES_SERVER_NAME" postgresAdminUser="$POSTGRES_ADMIN_USER"\
       --debug \
       --query "properties.outputs.appUrl.value" \
       -o tsv
