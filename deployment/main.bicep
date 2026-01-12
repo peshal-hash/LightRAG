@@ -92,8 +92,17 @@ resource initPgVector 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
 set -euo pipefail
 
 echo "Installing psql client..."
-apt-get update -y
-apt-get install -y postgresql-client ca-certificates
+if command -v apt-get >/dev/null 2>&1; then
+  apt-get update -y
+  apt-get install -y postgresql-client ca-certificates
+elif command -v tdnf >/dev/null 2>&1; then
+  tdnf -y install postgresql ca-certificates
+elif command -v apk >/dev/null 2>&1; then
+  apk add --no-cache postgresql-client ca-certificates
+else
+  echo "No supported package manager found (apt-get/tdnf/apk)."
+  exit 1
+fi
 
 echo "Reading Postgres password from Key Vault: ${KV_NAME}"
 export PGPASSWORD="$(az keyvault secret show --vault-name "${KV_NAME}" --name "POSTGRES-PASSWORD" --query value -o tsv)"
