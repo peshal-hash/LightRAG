@@ -524,7 +524,11 @@ def create_app(args):
     app = FastAPI(**app_kwargs)
     @app.middleware("http")
     async def multi_tenant_middleware(request: Request, call_next):
-        if request.url.path in ["/health", "/docs", "/openapi.json", "/redoc"]:
+        if (
+            request.url.path in ["/health", "/docs", "/openapi.json", "/redoc", "/auth-status", "/login"]
+            or request.url.path.startswith("/webui")
+            or request.url.path.startswith("/static")
+        ):
             return await call_next(request)
 
         # 1. Extract Header
