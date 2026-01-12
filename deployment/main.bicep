@@ -264,10 +264,6 @@ resource lightRAG 'Microsoft.App/containerApps@2023-05-01' = {
               secretRef: 'openai-api-key'
             }
             {
-              name: 'POSTGRES_VECTOR_INDEX_TYPE'
-              secretRef: 'HNSW'
-            }
-            {
               name: 'EMBEDDING_BINDING'
               value: 'openai'
             }
