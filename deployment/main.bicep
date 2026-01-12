@@ -50,7 +50,7 @@ resource postgresFirewallRule 'Microsoft.DBforPostgreSQL/flexibleServers/firewal
 }
 
 resource pgExtensions 'Microsoft.DBforPostgreSQL/flexibleServers/configurations@2022-12-01' = {
-  name: '${pgServer.name}/azure.extensions'
+  name: '${postgresServerName}/azure.extensions'
   properties: {
     value: 'vector'
     source: 'user-override'
