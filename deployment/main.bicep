@@ -49,7 +49,14 @@ resource postgresFirewallRule 'Microsoft.DBforPostgreSQL/flexibleServers/firewal
   }
 }
 
-// --- BOOTSTRAP: enable pgvector on the lightrag DB ---
+resource pgExtensions 'Microsoft.DBforPostgreSQL/flexibleServers/configurations@2022-12-01' = {
+  name: '${pgServer.name}/azure.extensions'
+  properties: {
+    value: 'vector'
+    source: 'user-override'
+  }
+}
+
 resource initPgVector 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
   name: 'init-lightrag-pgvector'
   location: location
@@ -106,7 +113,6 @@ fi
 
 echo "Reading Postgres password from Key Vault: ${KV_NAME}"
 export PGPASSWORD="$(az keyvault secret show --vault-name "${KV_NAME}" --name "POSTGRES-PASSWORD" --query value -o tsv)"
-
 echo "Enabling pgvector (vector extension) on database ${PG_DB}..."
 psql "host=${PG_HOST} port=5432 dbname=${PG_DB} user=${PG_USER} sslmode=require" \
   -v ON_ERROR_STOP=1 \
@@ -118,6 +124,7 @@ echo "pgvector enabled."
   dependsOn: [
     postgresFirewallRule
     lightragDatabase
+    pgExtensions
   ]
 }
 
