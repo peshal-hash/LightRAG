@@ -270,11 +270,11 @@ resource lightRAG 'Microsoft.App/containerApps@2023-05-01' = {
             }
             {
               name: 'EMBEDDING_MODEL'
-              value: 'text-embedding-3-large'
+              value: 'text-embedding-3-small'
             }
             {
               name: 'EMBEDDING_DIM'
-              value: '3072'
+              value: '1536'
             }
             {
               name: 'EMBEDDING_SEND_DIM'
