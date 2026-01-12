@@ -64,7 +64,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          bicep build ./deployment/main.bicep
+          bicep build "${GITHUB_WORKSPACE}/deployment/main.bicep"
 
       # Optional but very helpful: validate at RG scope (catches missing params, wrong API versions)
       - name: Bicep - Validate (resource group)
@@ -73,8 +73,8 @@ jobs:
           set -euo pipefail
           az deployment group validate \
             --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
-            --template-file ./deployment/main.bicep \
-            --parameters ./deployment/config.dev.bicepparam
+            --template-file "${GITHUB_WORKSPACE}/deployment/main.bicep" \
+            --parameters "${GITHUB_WORKSPACE}/deployment/config.dev.bicepparam"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3

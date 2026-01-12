@@ -1,5 +1,7 @@
 #!/bin/bash
 set -euo pipefail
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 
 # --- Argument Parsing ---
 if [[ $# -eq 0 ]] ; then
@@ -21,7 +23,8 @@ while [[ $# -gt 0 ]]; do
 done
 
 # --- Load Configuration ---
-CONFIG_FILE="./config.${ENVIRONMENT}.sh"
+CONFIG_FILE="${SCRIPT_DIR}/config.${ENVIRONMENT}.sh"
+
 if [ ! -f "$CONFIG_FILE" ]; then
     echo "ERROR: Configuration file not found: $CONFIG_FILE" >&2
     exit 1
@@ -91,21 +94,10 @@ function build_and_push_image() {
 
 function deploy_infrastructure() {
     write_info "Starting Bicep deployment for ${ENVIRONMENT_NAME} environment..."
-    
-    # FIX: Updated parameters to match lightrag.bicep
-    # 1. changed appImageTag -> appImageTag
-    # 2. added keyVaultName (required by bicep)
-    # 3. changed output query to appUrl
-    az deployment group validate \
+    az deployment group create \
       --resource-group "$RESOURCE_GROUP" \
-      --template-file ./deployment/main.bicep \
-      --parameters \
-        location="$LOCATION" \
-        environmentName="$AZURE_ENVIRONMENT_NAME" \
-        acrName="$ACR_NAME" \
-        keyVaultName="$KEY_VAULT_NAME" \
-        postgresServerName="$POSTGRES_SERVER_NAME" \
-        postgresAdminUser="$POSTGRES_ADMIN_USER"    \
+      --template-file "$BICEP_FILE" \
+      --parameters appImageTag="$IMAGE_TAG" location="$LOCATION" revisionSuffix="$REVISION_SUFFIX" keyVaultName="$KEY_VAULT_NAME" \
       --debug \
       --query "properties.outputs.appUrl.value" \
       -o tsv
