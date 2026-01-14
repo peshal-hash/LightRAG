@@ -334,13 +334,40 @@ const silentRefreshGuestToken = async (): Promise<string> => {
   return refreshTokenPromise;
 };
 
-// Interceptor: add api key and check authentication
+const getActiveWorkspace = (): string | null => {
+  // Option A: From Local Storage (simplest for now)
+  return localStorage.getItem('LIGHTRAG-ACTIVE-WORKSPACE');
+}
+
 axiosInstance.interceptors.request.use((config) => {
-  // Skip interceptor for token refresh requests
   if (config.headers['X-Skip-Interceptor']) {
     delete config.headers['X-Skip-Interceptor'];
     return config;
   }
+
+  const apiKey = useSettingsStore.getState().apiKey
+  const token = localStorage.getItem('LIGHTRAG-API-TOKEN');
+  
+  // NEW: Get Workspace
+  const workspace = getActiveWorkspace();
+
+  if (token) {
+    config.headers['Authorization'] = `Bearer ${token}`
+  }
+  if (apiKey) {
+    config.headers['X-API-Key'] = apiKey
+  }
+  
+  // NEW: Inject Header
+  if (workspace) {
+    config.headers['LIGHTRAG-WORKSPACE'] = workspace;
+  } else {
+    // Optional: Log warning or redirect to workspace selection if missing
+    console.warn("No active workspace found for API request");
+  }
+  
+  return config
+})
 
   const apiKey = useSettingsStore.getState().apiKey
   const token = localStorage.getItem('LIGHTRAG-API-TOKEN');
@@ -520,6 +547,7 @@ export const queryTextStream = async (
 ) => {
   const apiKey = useSettingsStore.getState().apiKey;
   const token = localStorage.getItem('LIGHTRAG-API-TOKEN');
+  const workspace = localStorage.getItem('LIGHTRAG-ACTIVE-WORKSPACE'); 
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
     'Accept': 'application/x-ndjson',
@@ -530,7 +558,7 @@ export const queryTextStream = async (
   if (apiKey) {
     headers['X-API-Key'] = apiKey;
   }
-
+  if (workspace) headers['LIGHTRAG-WORKSPACE'] = workspace; 
   try {
     const response = await fetch(`${backendBaseUrl}/query/stream`, {
       method: 'POST',
@@ -544,6 +572,7 @@ export const queryTextStream = async (
         // Check if in guest mode
         const authStore = useAuthStore.getState();
         const currentToken = localStorage.getItem('LIGHTRAG-API-TOKEN');
+        
         const isGuest = currentToken && authStore.isGuestMode;
 
         if (isGuest) {
