@@ -335,7 +335,7 @@ const silentRefreshGuestToken = async (): Promise<string> => {
 };
 const getActiveWorkspace = (): string | null => {
   // We assume the UI saves the selected workspace key here
-  return localStorage.getItem('LIGHTRAG-WORKSPACE');
+  return localStorage.getItem('LIGHTRAG-ACTIVE-WORKSPACE');
 };
 
 axiosInstance.interceptors.request.use((config) => {
