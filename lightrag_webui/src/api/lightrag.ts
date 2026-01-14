@@ -333,54 +333,32 @@ const silentRefreshGuestToken = async (): Promise<string> => {
 
   return refreshTokenPromise;
 };
-
 const getActiveWorkspace = (): string | null => {
-  // Option A: From Local Storage (simplest for now)
+  // We assume the UI saves the selected workspace key here
   return localStorage.getItem('LIGHTRAG-ACTIVE-WORKSPACE');
-}
+};
 
 axiosInstance.interceptors.request.use((config) => {
-  if (config.headers['X-Skip-Interceptor']) {
-    delete config.headers['X-Skip-Interceptor'];
+  // Ensure headers object exists
+  config.headers = (config.headers ?? {}) as any;
+
+  // Skip interceptor for token refresh requests
+  if ((config.headers as any)['X-Skip-Interceptor']) {
+    delete (config.headers as any)['X-Skip-Interceptor'];
     return config;
   }
 
-  const apiKey = useSettingsStore.getState().apiKey
+  const apiKey = useSettingsStore.getState().apiKey;
   const token = localStorage.getItem('LIGHTRAG-API-TOKEN');
-  
-  // NEW: Get Workspace
   const workspace = getActiveWorkspace();
 
-  if (token) {
-    config.headers['Authorization'] = `Bearer ${token}`
-  }
-  if (apiKey) {
-    config.headers['X-API-Key'] = apiKey
-  }
-  
-  // NEW: Inject Header
-  if (workspace) {
-    config.headers['LIGHTRAG-WORKSPACE'] = workspace;
-  } else {
-    // Optional: Log warning or redirect to workspace selection if missing
-    console.warn("No active workspace found for API request");
-  }
-  
-  return config
-})
+  if (token) (config.headers as any)['Authorization'] = `Bearer ${token}`;
+  if (apiKey) (config.headers as any)['X-API-Key'] = apiKey;
+  if (workspace) (config.headers as any)['LIGHTRAG-WORKSPACE'] = workspace;
 
-  const apiKey = useSettingsStore.getState().apiKey
-  const token = localStorage.getItem('LIGHTRAG-API-TOKEN');
+  return config;
+});
 
-  // Always include token if it exists, regardless of path
-  if (token) {
-    config.headers['Authorization'] = `Bearer ${token}`
-  }
-  if (apiKey) {
-    config.headers['X-API-Key'] = apiKey
-  }
-  return config
-})
 
 // Interceptor：handle token renewal and authentication errors
 axiosInstance.interceptors.response.use(
@@ -539,7 +517,6 @@ export const queryText = async (request: QueryRequest): Promise<QueryResponse> =
   const response = await axiosInstance.post('/query', request)
   return response.data
 }
-
 export const queryTextStream = async (
   request: QueryRequest,
   onChunk: (chunk: string) => void,
@@ -547,18 +524,20 @@ export const queryTextStream = async (
 ) => {
   const apiKey = useSettingsStore.getState().apiKey;
   const token = localStorage.getItem('LIGHTRAG-API-TOKEN');
-  const workspace = localStorage.getItem('LIGHTRAG-ACTIVE-WORKSPACE'); 
+  
+  // NEW: Get workspace
+  const workspace = getActiveWorkspace();
+
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
     'Accept': 'application/x-ndjson',
   };
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-  if (apiKey) {
-    headers['X-API-Key'] = apiKey;
-  }
-  if (workspace) headers['LIGHTRAG-WORKSPACE'] = workspace; 
+  
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  if (apiKey) headers['X-API-Key'] = apiKey;
+  
+  // NEW: Inject Header
+  if (workspace) headers['LIGHTRAG-WORKSPACE'] = workspace;
   try {
     const response = await fetch(`${backendBaseUrl}/query/stream`, {
       method: 'POST',
