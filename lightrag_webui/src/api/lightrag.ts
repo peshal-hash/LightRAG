@@ -333,11 +333,13 @@ const silentRefreshGuestToken = async (): Promise<string> => {
 
   return refreshTokenPromise;
 };
-const getActiveWorkspace = (): string | null => {
-  // We assume the UI saves the selected workspace key here
-  return localStorage.getItem('LIGHTRAG-ACTIVE-WORKSPACE');
+const getWorkspaceFromParams = (): string | null => {
+  if (typeof window !== 'undefined') {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('workspace');
+  }
+  return null;
 };
-
 axiosInstance.interceptors.request.use((config) => {
   // Ensure headers object exists
   config.headers = (config.headers ?? {}) as any;
@@ -350,7 +352,7 @@ axiosInstance.interceptors.request.use((config) => {
 
   const apiKey = useSettingsStore.getState().apiKey;
   const token = localStorage.getItem('LIGHTRAG-API-TOKEN');
-  const workspace = getActiveWorkspace();
+  const workspace = getWorkspaceFromParams();
 
   if (token) (config.headers as any)['Authorization'] = `Bearer ${token}`;
   if (apiKey) (config.headers as any)['X-API-Key'] = apiKey;
