@@ -333,11 +333,28 @@ const silentRefreshGuestToken = async (): Promise<string> => {
 
   return refreshTokenPromise;
 };
-const getWorkspaceFromParams = (): string | null => {
-  if (typeof window !== 'undefined') {
-    const params = new URLSearchParams(window.location.search);
-    return params.get('workspace');
+const getResolvedWorkspace = (): string | null => {
+  if (typeof window === 'undefined') return null;
+
+  // 1. Priority: URL Parameter (e.g. ?workspace=user-123)
+  // This allows deep-linking to specific workspaces
+  const params = new URLSearchParams(window.location.search);
+  const urlWorkspace = params.get('workspace');
+
+  if (urlWorkspace) {
+    // If found in URL, persist it to LocalStorage so it sticks
+    // if the user navigates to a cleaner URL later
+    localStorage.setItem('LIGHTRAG-WORKSPACE', urlWorkspace);
+    return urlWorkspace;
   }
+
+  // 2. Fallback: LocalStorage
+  // This acts as the persistent "session" workspace
+  const storedWorkspace = localStorage.getItem('LIGHTRAG-WORKSPACE');
+  if (storedWorkspace) {
+    return storedWorkspace;
+  }
+
   return null;
 };
 axiosInstance.interceptors.request.use((config) => {
@@ -352,7 +369,7 @@ axiosInstance.interceptors.request.use((config) => {
 
   const apiKey = useSettingsStore.getState().apiKey;
   const token = localStorage.getItem('LIGHTRAG-API-TOKEN');
-  const workspace = getWorkspaceFromParams();
+  const workspace = getResolvedWorkspace();
 
   if (token) (config.headers as any)['Authorization'] = `Bearer ${token}`;
   if (apiKey) (config.headers as any)['X-API-Key'] = apiKey;
@@ -528,8 +545,7 @@ export const queryTextStream = async (
   const token = localStorage.getItem('LIGHTRAG-API-TOKEN');
   
   // NEW: Get workspace
-  const workspace = getActiveWorkspace();
-
+  const workspace = getResolvedWorkspace();
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
     'Accept': 'application/x-ndjson',
