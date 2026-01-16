@@ -92,7 +92,6 @@ export default function SiteHeader() {
 
       <nav className="w-[200px] flex items-center justify-end gap-2">
         <AppSettings />
-        </Button>
       </nav>
     </header>
   )
