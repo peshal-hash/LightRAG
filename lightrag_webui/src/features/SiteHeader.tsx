@@ -75,11 +75,6 @@ export default function SiteHeader() {
 
       <div className="flex h-10 flex-1 items-center justify-center">
         <TabsNavigation />
-        {isGuestMode && (
-          <div className="ml-2 self-center px-2 py-1 text-xs bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200 rounded-md">
-            {t('login.guestMode', 'Guest Mode')}
-          </div>
-        )}
       </div>
 
       <nav className="w-[200px] flex items-center justify-end">
