@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useCallback } from 'react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/Popover'
 import Button from '@/components/ui/Button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select'
@@ -15,15 +15,19 @@ export default function AppSettings({ className }: AppSettingsProps) {
   const [opened, setOpened] = useState<boolean>(false)
   const { t } = useTranslation()
 
-  // We still import the setters to force the state
+  const language = useSettingsStore.use.language()
   const setLanguage = useSettingsStore.use.setLanguage()
+
+  const theme = useSettingsStore.use.theme()
   const setTheme = useSettingsStore.use.setTheme()
 
-  // FORCE English and Light mode on mount
-  useEffect(() => {
-    setLanguage('en')
-    setTheme('light')
-  }, [setLanguage, setTheme])
+  const handleLanguageChange = useCallback((value: string) => {
+    setLanguage(value as 'en' | 'zh' | 'fr' | 'ar' | 'zh_TW' | 'ru' | 'ja' | 'de' | 'uk')
+  }, [setLanguage])
+
+  const handleThemeChange = useCallback((value: string) => {
+    setTheme(value as 'light' | 'dark' | 'system')
+  }, [setTheme])
 
   return (
     <Popover open={opened} onOpenChange={setOpened}>
@@ -34,33 +38,39 @@ export default function AppSettings({ className }: AppSettingsProps) {
       </PopoverTrigger>
       <PopoverContent side="bottom" align="end" className="w-56">
         <div className="flex flex-col gap-4">
-          
-          {/* Language Section - Locked to English */}
           <div className="flex flex-col gap-2">
             <label className="text-sm font-medium">{t('settings.language')}</label>
-            <Select value="en" disabled>
+            <Select value={language} onValueChange={handleLanguageChange}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="en">English</SelectItem>
+                <SelectItem value="zh">中文</SelectItem>
+                <SelectItem value="fr">Français</SelectItem>
+                <SelectItem value="ar">العربية</SelectItem>
+                <SelectItem value="zh_TW">繁體中文</SelectItem>
+                <SelectItem value="ru">Русский</SelectItem>
+                <SelectItem value="ja">日本語</SelectItem>
+                <SelectItem value="de">Deutsch</SelectItem>
+                <SelectItem value="uk">Українська</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
-          {/* Theme Section - Locked to Light */}
           <div className="flex flex-col gap-2">
             <label className="text-sm font-medium">{t('settings.theme')}</label>
-            <Select value="light" disabled>
+            <Select value={theme} onValueChange={handleThemeChange}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="light">{t('settings.light')}</SelectItem>
+                <SelectItem value="dark">{t('settings.dark')}</SelectItem>
+                <SelectItem value="system">{t('settings.system')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
-
         </div>
       </PopoverContent>
     </Popover>
