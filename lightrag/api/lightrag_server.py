@@ -1338,8 +1338,11 @@ def create_app(args):
         try:
             workspace = get_workspace_from_request(request)
             default_workspace = get_default_workspace()
+            if workspace is not None and workspace != "default":
+                await rag_manager.get_instance(workspace)
             if workspace is None:
                 workspace = default_workspace
+
             pipeline_status = await get_namespace_data(
                 "pipeline_status", workspace=workspace
             )

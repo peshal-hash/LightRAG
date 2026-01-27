@@ -170,8 +170,8 @@ resource lightRAG 'Microsoft.App/containerApps@2023-05-01' = {
           identity: managedIdentity.id
         }
         {
-          name: 'openai-api-key'
-          keyVaultUrl: '${keyVault.properties.vaultUri}secrets/OPENAI-API-KEY'
+          name: 'azure-openai-api-key'
+          keyVaultUrl: '${keyVault.properties.vaultUri}secrets/AZURE-OPENAI-API-KEY'
           identity: managedIdentity.id
         }
         {
@@ -250,22 +250,33 @@ resource lightRAG 'Microsoft.App/containerApps@2023-05-01' = {
               name: 'POSTGRES_SSL_MODE'
               value: 'require'
             }
-
+            {
+              name: 'AZURE_OPENAI_API_VERSION'
+              value: '2024-12-01-preview'
+            }
             {
               name: 'LLM_BINDING'
-              value: 'openai'
+              value: 'azure_openai'
+            }
+            {
+              name: 'LLM_BINDING_HOST'
+              value: 'https://nexopta-foundry.cognitiveservices.azure.com/'
             }
             {
               name: 'LLM_MODEL'
-              value: 'gpt-4o'
+              value: 'gpt-4.1'
             }
             {
               name: 'LLM_BINDING_API_KEY'
-              secretRef: 'openai-api-key'
+              secretRef: 'azure-openai-api-key'
+            }
+            {
+              name: 'AZURE_EMBEDDING_API_VERSION'
+              value: '2024-12-01-preview'
             }
             {
               name: 'EMBEDDING_BINDING'
-              value: 'openai'
+              value: 'azure_openai'
             }
             {
               name: 'EMBEDDING_MODEL'
@@ -276,14 +287,13 @@ resource lightRAG 'Microsoft.App/containerApps@2023-05-01' = {
               value: '1536'
             }
             {
-              name: 'EMBEDDING_SEND_DIM'
-              value: 'false'
+              name: 'EMBEDDING_BINDING_HOST'
+              value: 'https://nexopta-foundry.cognitiveservices.azure.com/'
             }
             {
-              name: 'EMBEDDING_BINDING_API_KEY'
-              secretRef: 'openai-api-key'
+              name: 'EMBEDDING_API_KEY'
+              secretRef: 'azure-openai-api-key'
             }
-
             {
               name: 'TIKTOKEN_CACHE_DIR'
               value: '/app/data/tiktoken'
