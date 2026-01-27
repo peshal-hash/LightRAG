@@ -10,4 +10,4 @@ param keyVaultName = 'salesopt-kv-test'
 // reuse Activepieces postgres flexible server
 param postgresServerName = 'salesopt-pg-server-dev-b7e59be4'
 param postgresAdminUser = 'salesoptadmin'
-param lightragStorageAccountName = 'lightragfiles'
+param lightragStorageAccountName = 'lightragfilesprod01'

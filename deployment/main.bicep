@@ -3,7 +3,6 @@ param environmentName string = 'testAPContainerEnvironment'
 param acrName string = 'salesopttest'
 param appImageTag string = 'latest'
 param revisionSuffix string = ''
-param useExistingStorage bool = false
 param keyVaultName string
 
 param postgresServerName string
@@ -13,6 +12,7 @@ param lightragStorageAccountName string
 param lightragRagShareName string = 'rag-storage'
 param lightragInputsShareName string = 'inputs'
 param lightragTiktokenShareName string = 'tiktoken-cache'
+param useExistingStorage bool = false
 
 
 resource acr 'Microsoft.ContainerRegistry/registries@2023-07-01' existing = {
