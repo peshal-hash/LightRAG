@@ -3,13 +3,18 @@ param environmentName string = 'testAPContainerEnvironment'
 param acrName string = 'salesopttest'
 param appImageTag string = 'latest'
 param revisionSuffix string = ''
+param useExistingStorage bool = false
 param keyVaultName string
 
-// Reuse the same Postgres Flexible Server that Activepieces uses
 param postgresServerName string
 param postgresAdminUser string
 
-// --- EXISTING RESOURCES ---
+param lightragStorageAccountName string
+param lightragRagShareName string = 'rag-storage'
+param lightragInputsShareName string = 'inputs'
+param lightragTiktokenShareName string = 'tiktoken-cache'
+
+
 resource acr 'Microsoft.ContainerRegistry/registries@2023-07-01' existing = {
   name: acrName
 }
@@ -26,20 +31,19 @@ resource keyVault 'Microsoft.KeyVault/vaults@2023-02-01' existing = {
   name: keyVaultName
 }
 
-// Existing Postgres server (same one Activepieces uses)
+
 resource existingPostgresServer 'Microsoft.DBforPostgreSQL/flexibleServers@2023-03-01-preview' existing = {
   name: postgresServerName
 }
 
 var postgresHost = existingPostgresServer.properties.fullyQualifiedDomainName
 
-// Ensure DB exists
 resource lightragDatabase 'Microsoft.DBforPostgreSQL/flexibleServers/databases@2023-03-01-preview' = {
   parent: existingPostgresServer
   name: 'lightrag'
 }
 
-// Allow Azure services to connect (includes Container Apps)
+
 resource postgresFirewallRule 'Microsoft.DBforPostgreSQL/flexibleServers/firewallRules@2023-03-01-preview' = {
   parent: existingPostgresServer
   name: 'AllowAllWindowsAzureIps'
@@ -128,7 +132,53 @@ echo "pgvector enabled."
   ]
 }
 
-// --- LIGHTRAG CONTAINER APP ---
+
+resource lightragStorage 'Microsoft.Storage/storageAccounts@2023-01-01' = if (!useExistingStorage)  {
+  name: lightragStorageAccountName
+  location: location
+  sku: {
+    name: 'Standard_LRS'
+  }
+  kind: 'StorageV2'
+  properties: {
+    allowBlobPublicAccess: false
+    minimumTlsVersion: 'TLS1_2'
+    supportsHttpsTrafficOnly: true
+  }
+}
+
+param lightragStorageResourceGroup string = resourceGroup().name
+resource lightragStorageExisting 'Microsoft.Storage/storageAccounts@2023-01-01' existing = if (useExistingStorage) {
+  name: lightragStorageAccountName
+  scope: resourceGroup(lightragStorageResourceGroup)
+}
+
+var lightragStorageName = lightragStorageAccountName
+var lightragStorageKey = useExistingStorage
+  ? lightragStorageExisting.listKeys().keys[0].value
+  : lightragStorage.listKeys().keys[0].value
+
+var storageDependsOn = useExistingStorage ? [] : [ lightragStorage ]
+
+resource ragShare 'Microsoft.Storage/storageAccounts/fileServices/shares@2023-01-01' = {
+  name: '${lightragStorageName}/default/${lightragRagShareName}'
+  properties: { shareQuota: 100 }
+  dependsOn: storageDependsOn
+}
+
+resource inputsShare 'Microsoft.Storage/storageAccounts/fileServices/shares@2023-01-01' = {
+  name: '${lightragStorageName}/default/${lightragInputsShareName}'
+  properties: { shareQuota: 100 }
+  dependsOn: storageDependsOn
+}
+
+resource tiktokenShare 'Microsoft.Storage/storageAccounts/fileServices/shares@2023-01-01' = {
+  name: '${lightragStorageName}/default/${lightragTiktokenShareName}'
+  properties: { shareQuota: 10 }
+  dependsOn: storageDependsOn
+}
+
+
 resource lightRAG 'Microsoft.App/containerApps@2023-05-01' = {
   name: 'salesopt-lightrag'
   location: location
@@ -168,6 +218,10 @@ resource lightRAG 'Microsoft.App/containerApps@2023-05-01' = {
           name: 'lightrag-api-key'
           keyVaultUrl: '${keyVault.properties.vaultUri}secrets/LIGHTRAG-API-KEY'
           identity: managedIdentity.id
+        }
+        {
+          name: 'lightrag-files-key'
+          value: lightragStorageKey
         }
         {
           name: 'azure-openai-api-key'
@@ -307,17 +361,62 @@ resource lightRAG 'Microsoft.App/containerApps@2023-05-01' = {
               value: '/app/rag_storage'
             }
           ]
+          volumeMounts: [
+            {
+              volumeName: 'rag-storage-vol'
+              mountPath: '/app/rag_storage'
+            }
+            {
+              volumeName: 'inputs-vol'
+              mountPath: '/app/inputs'
+            }
+            {
+              volumeName: 'tiktoken-vol'
+              mountPath: '/app/data/tiktoken'
+            }
+          ]
+
         }
       ]
       scale: {
         minReplicas: 1
-        maxReplicas: 2
+        maxReplicas: 1
       }
+      volumes: [
+        {
+          name: 'rag-storage-vol'
+          azureFile: {
+            accountName: lightragStorageName
+            shareName: lightragRagShareName
+            accessKeySecretRef: 'lightrag-files-key'
+          }
+        }
+        {
+          name: 'inputs-vol'
+          azureFile: {
+            accountName: lightragStorageName
+            shareName: lightragInputsShareName
+            accessKeySecretRef: 'lightrag-files-key'
+          }
+        }
+        {
+          name: 'tiktoken-vol'
+          azureFile: {
+            accountName: lightragStorageName
+            shareName: lightragTiktokenShareName
+            accessKeySecretRef: 'lightrag-files-key'
+          }
+        }
+      ]
+
     }
   }
   dependsOn: [
     initPgVector
-  ]
+    ragShare
+    inputsShare
+    tiktokenShare
+  ] + storageDependsOn
 }
 
 output appUrl string = lightRAG.properties.configuration.ingress.fqdn
