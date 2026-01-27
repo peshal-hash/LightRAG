@@ -100,31 +100,31 @@ resource initPgVector 'Microsoft.Resources/deploymentScripts@2023-08-01' =  if (
     ]
 
     scriptContent: '''
-#!/bin/bash
-set -euo pipefail
+    #!/bin/bash
+    set -euo pipefail
 
-echo "Installing psql client..."
-if command -v apt-get >/dev/null 2>&1; then
-  apt-get update -y
-  apt-get install -y postgresql-client ca-certificates
-elif command -v tdnf >/dev/null 2>&1; then
-  tdnf -y install postgresql ca-certificates
-elif command -v apk >/dev/null 2>&1; then
-  apk add --no-cache postgresql-client ca-certificates
-else
-  echo "No supported package manager found (apt-get/tdnf/apk)."
-  exit 1
-fi
+    echo "Installing psql client..."
+    if command -v apt-get >/dev/null 2>&1; then
+      apt-get update -y
+      apt-get install -y postgresql-client ca-certificates
+    elif command -v tdnf >/dev/null 2>&1; then
+      tdnf -y install postgresql ca-certificates
+    elif command -v apk >/dev/null 2>&1; then
+      apk add --no-cache postgresql-client ca-certificates
+    else
+      echo "No supported package manager found (apt-get/tdnf/apk)."
+      exit 1
+    fi
 
-echo "Reading Postgres password from Key Vault: ${KV_NAME}"
-export PGPASSWORD="$(az keyvault secret show --vault-name "${KV_NAME}" --name "POSTGRES-PASSWORD" --query value -o tsv)"
-echo "Enabling pgvector (vector extension) on database ${PG_DB}..."
-psql "host=${PG_HOST} port=5432 dbname=${PG_DB} user=${PG_USER} sslmode=require" \
-  -v ON_ERROR_STOP=1 \
-  -c "CREATE EXTENSION IF NOT EXISTS vector;"
+    echo "Reading Postgres password from Key Vault: ${KV_NAME}"
+    export PGPASSWORD="$(az keyvault secret show --vault-name "${KV_NAME}" --name "POSTGRES-PASSWORD" --query value -o tsv)"
+    echo "Enabling pgvector (vector extension) on database ${PG_DB}..."
+    psql "host=${PG_HOST} port=5432 dbname=${PG_DB} user=${PG_USER} sslmode=require" \
+      -v ON_ERROR_STOP=1 \
+      -c "CREATE EXTENSION IF NOT EXISTS vector;"
 
-echo "pgvector enabled."
-'''
+    echo "pgvector enabled."
+    '''
   }
   dependsOn: [
     postgresFirewallRule
@@ -179,6 +179,54 @@ resource tiktokenShare 'Microsoft.Storage/storageAccounts/fileServices/shares@20
   dependsOn: storageDependsOn
 }
 
+
+resource ragEnvStorage 'Microsoft.App/managedEnvironments/storages@2023-05-01' = {
+  parent: existingEnvironment
+  name: 'rag-storage'
+  properties: {
+    azureFile: {
+      accountName: lightragStorageName
+      shareName: lightragRagShareName
+      accountKey: lightragStorageKey
+      accessMode: 'ReadWrite'
+    }
+  }
+  dependsOn: [
+    ragShare
+  ]
+}
+
+resource inputsEnvStorage 'Microsoft.App/managedEnvironments/storages@2023-05-01' = {
+  parent: existingEnvironment
+  name: 'inputs-storage'
+  properties: {
+    azureFile: {
+      accountName: lightragStorageName
+      shareName: lightragInputsShareName
+      accountKey: lightragStorageKey
+      accessMode: 'ReadWrite'
+    }
+  }
+  dependsOn: [
+    inputsShare
+  ]
+}
+
+resource tiktokenEnvStorage 'Microsoft.App/managedEnvironments/storages@2023-05-01' = {
+  parent: existingEnvironment
+  name: 'tiktoken-storage'
+  properties: {
+    azureFile: {
+      accountName: lightragStorageName
+      shareName: lightragTiktokenShareName
+      accountKey: lightragStorageKey
+      accessMode: 'ReadWrite'
+    }
+  }
+  dependsOn: [
+    tiktokenShare
+  ]
+}
 
 resource lightRAG 'Microsoft.App/containerApps@2023-05-01' = {
   name: 'salesopt-lightrag'
@@ -383,32 +431,24 @@ resource lightRAG 'Microsoft.App/containerApps@2023-05-01' = {
         minReplicas: 1
         maxReplicas: 1
       }
-      volumes: [
-        {
-          name: 'rag-storage-vol'
-          azureFile: {
-            accountName: lightragStorageName
-            shareName: lightragRagShareName
-            accessKeySecretRef: 'lightrag-files-key'
-          }
-        }
-        {
-          name: 'inputs-vol'
-          azureFile: {
-            accountName: lightragStorageName
-            shareName: lightragInputsShareName
-            accessKeySecretRef: 'lightrag-files-key'
-          }
-        }
-        {
-          name: 'tiktoken-vol'
-          azureFile: {
-            accountName: lightragStorageName
-            shareName: lightragTiktokenShareName
-            accessKeySecretRef: 'lightrag-files-key'
-          }
-        }
-      ]
+    volumes: [
+      {
+        name: 'rag-storage-vol'
+        storageType: 'AzureFile'
+        storageName: ragEnvStorage.name
+      }
+      {
+        name: 'inputs-vol'
+        storageType: 'AzureFile'
+        storageName: inputsEnvStorage.name
+      }
+      {
+        name: 'tiktoken-vol'
+        storageType: 'AzureFile'
+        storageName: tiktokenEnvStorage.name
+      }
+    ]
+
 
     }
   }
@@ -417,12 +457,18 @@ resource lightRAG 'Microsoft.App/containerApps@2023-05-01' = {
         ragShare
         inputsShare
         tiktokenShare
+        ragEnvStorage
+        inputsEnvStorage
+        tiktokenEnvStorage
       ]
     : [
         ragShare
         inputsShare
         tiktokenShare
         lightragStorage
+        ragEnvStorage
+        inputsEnvStorage
+        tiktokenEnvStorage
       ]
 }
 
