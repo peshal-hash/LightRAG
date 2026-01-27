@@ -12,7 +12,7 @@ param lightragStorageAccountName string = 'lightragfilesprod01'
 param lightragRagShareName string = 'rag-storage'
 param lightragInputsShareName string = 'inputs'
 param lightragTiktokenShareName string = 'tiktoken-cache'
-param useExistingStorage bool = false
+param useExistingStorage bool = true
 param runPgVectorInit bool = false
 
 resource acr 'Microsoft.ContainerRegistry/registries@2023-07-01' existing = {
