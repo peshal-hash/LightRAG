@@ -411,12 +411,19 @@ resource lightRAG 'Microsoft.App/containerApps@2023-05-01' = {
 
     }
   }
-  dependsOn: [
-    initPgVector
-    ragShare
-    inputsShare
-    tiktokenShare
-  ] + storageDependsOn
-}
+  dependsOn: useExistingStorage
+    ? [
+        initPgVector
+        ragShare
+        inputsShare
+        tiktokenShare
+      ]
+    : [
+        initPgVector
+        ragShare
+        inputsShare
+        tiktokenShare
+        lightragStorage
+      ]}
 
 output appUrl string = lightRAG.properties.configuration.ingress.fqdn
