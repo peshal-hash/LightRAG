@@ -13,7 +13,7 @@ param lightragRagShareName string = 'rag-storage'
 param lightragInputsShareName string = 'inputs'
 param lightragTiktokenShareName string = 'tiktoken-cache'
 param useExistingStorage bool = false
-
+param runPgVectorInit bool = false
 
 resource acr 'Microsoft.ContainerRegistry/registries@2023-07-01' existing = {
   name: acrName
@@ -53,15 +53,16 @@ resource postgresFirewallRule 'Microsoft.DBforPostgreSQL/flexibleServers/firewal
   }
 }
 
-resource pgExtensions 'Microsoft.DBforPostgreSQL/flexibleServers/configurations@2022-12-01' = {
-  name: '${postgresServerName}/azure.extensions'
+resource pgExtensions 'Microsoft.DBforPostgreSQL/flexibleServers/configurations@2022-12-01' = if (runPgVectorInit) {
+  parent: existingPostgresServer
+  name: 'azure.extensions'
   properties: {
     value: 'vector'
     source: 'user-override'
   }
 }
 
-resource initPgVector 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
+resource initPgVector 'Microsoft.Resources/deploymentScripts@2023-08-01' =  if (runPgVectorInit) {
   name: 'init-lightrag-pgvector'
   location: location
   identity: {
@@ -413,17 +414,16 @@ resource lightRAG 'Microsoft.App/containerApps@2023-05-01' = {
   }
   dependsOn: useExistingStorage
     ? [
-        initPgVector
         ragShare
         inputsShare
         tiktokenShare
       ]
     : [
-        initPgVector
         ragShare
         inputsShare
         tiktokenShare
         lightragStorage
-      ]}
+      ]
+}
 
 output appUrl string = lightRAG.properties.configuration.ingress.fqdn
