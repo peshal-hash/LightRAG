@@ -8,7 +8,7 @@ param keyVaultName string
 param postgresServerName string
 param postgresAdminUser string
 
-param lightragStorageAccountName string
+param lightragStorageAccountName string = 'lightragfilesprod01'
 param lightragRagShareName string = 'rag-storage'
 param lightragInputsShareName string = 'inputs'
 param lightragTiktokenShareName string = 'tiktoken-cache'
