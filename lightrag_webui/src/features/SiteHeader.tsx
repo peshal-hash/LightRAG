@@ -22,7 +22,7 @@ function NavigationTab({ value, currentTab, children }: NavigationTabProps) {
       value={value}
       className={cn(
         'cursor-pointer px-2 py-1 transition-all',
-        currentTab === value ? '!bg-emerald-400 !text-zinc-50' : 'hover:bg-background/60'
+        currentTab === value ? '!bg-[hsl(204_78%_47%)] !text-zinc-50' : 'hover:bg-background/60'
       )}
     >
       {children}
@@ -79,7 +79,6 @@ export default function SiteHeader() {
 
       <nav className="w-[200px] flex items-center justify-end">
         <div className="flex items-center gap-2">
-          <AppSettings />
         </div>
       </nav>
     </header>
