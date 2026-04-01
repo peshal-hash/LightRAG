@@ -2,7 +2,7 @@
 LightRAG FastAPI Server
 """
 
-from fastapi import FastAPI, Depends, HTTPException, Request
+from fastapi import FastAPI, Depends, HTTPException, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.openapi.docs import (
@@ -525,7 +525,7 @@ def create_app(args):
     @app.middleware("http")
     async def multi_tenant_middleware(request: Request, call_next):
         if (
-            request.url.path in ["/health", "/docs", "/openapi.json", "/redoc", "/auth-status", "/login"]
+            request.url.path in ["/health", "/docs", "/openapi.json", "/redoc", "/auth-status", "/login","/logout"]
             or request.url.path.startswith("/webui")
             or request.url.path.startswith("/static")
         ):
@@ -1264,7 +1264,42 @@ def create_app(args):
             "webui_title": webui_title,
             "webui_description": webui_description,
         }
+    def clear_lightrag_cookies(response: Response) -> None:
+        cookie_names = [
+            "LIGHTRAG_TOKEN",
+            "LIGHTRAG_ACCESS_TOKEN",
+            "LIGHTRAG_REFRESH_TOKEN",
+            "LIGHTRAG_AUTH",
+            "LIGHTRAG_SESSION",
+            "access_token",
+            "refresh_token",
+            "token",
+            "auth_token",
+            "session",
+            "workspace",
+            "LIGHTRAG_WORKSPACE",
+        ]
 
+        cookie_variants = [
+            {"path": "/"},
+            {"path": "/", "secure": True, "samesite": "none"},
+            {"path": "/", "samesite": "lax"},
+        ]
+
+        for cookie_name in cookie_names:
+            for variant in cookie_variants:
+                response.delete_cookie(key=cookie_name, **variant)
+
+    @app.post("/logout")
+    async def logout():
+        response = JSONResponse(
+            content={
+                "success": True,
+                "message": "Logged out successfully. LightRAG cookies cleared.",
+            }
+        )
+        clear_lightrag_cookies(response)
+        return response
     @app.post("/login")
     async def login(form_data: OAuth2PasswordRequestForm = Depends()):
         if not auth_handler.accounts:
