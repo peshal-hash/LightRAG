@@ -93,12 +93,24 @@ function build_and_push_image() {
 }
 
 function deploy_infrastructure() {
+    local deployment_name="lightrag-${REVISION_SUFFIX}"
     write_info "Starting Bicep deployment for ${ENVIRONMENT_NAME} environment..."
+
+    # Run the deployment as its own step. Send all of its output to stderr so the
+    # only thing this function prints to stdout is the FQDN captured below. If the
+    # deployment fails, az exits non-zero and trips the ERR trap.
     az deployment group create \
+      --name "$deployment_name" \
       --resource-group "$RESOURCE_GROUP" \
       --template-file "$BICEP_FILE" \
-      --parameters appImageTag="$IMAGE_TAG" location="$LOCATION" revisionSuffix="$REVISION_SUFFIX" keyVaultName="$KEY_VAULT_NAME" postgresServerName="$POSTGRES_SERVER_NAME" postgresAdminUser="$POSTGRES_ADMIN_USER"\
-      --debug \
+      --parameters appImageTag="$IMAGE_TAG" location="$LOCATION" revisionSuffix="$REVISION_SUFFIX" keyVaultName="$KEY_VAULT_NAME" postgresServerName="$POSTGRES_SERVER_NAME" postgresAdminUser="$POSTGRES_ADMIN_USER" \
+      --output none >&2
+
+    # Read the FQDN from the completed deployment in a separate, clean call so no
+    # progress/debug noise can ever contaminate the captured value.
+    az deployment group show \
+      --name "$deployment_name" \
+      --resource-group "$RESOURCE_GROUP" \
       --query "properties.outputs.appUrl.value" \
       -o tsv
 }
@@ -150,8 +162,11 @@ function main() {
   fi
   write_success "LightRAG image built and pushed."
     
-  # Deploy using Bicep
-  local app_fqdn=$(deploy_infrastructure)
+  # Deploy using Bicep.
+  # Declare first, then assign, so the command-substitution exit code is not
+  # masked by `local` and a failed deployment trips `set -e` / the ERR trap.
+  local app_fqdn
+  app_fqdn=$(deploy_infrastructure)
   if [[ -z "$app_fqdn" ]]; then
     write_error "Failed to get App FQDN from Bicep deployment output."
     exit 1
