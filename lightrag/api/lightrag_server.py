@@ -1264,6 +1264,7 @@ def create_app(args):
             "webui_title": webui_title,
             "webui_description": webui_description,
         }
+        
     def clear_lightrag_cookies(response: Response) -> None:
         cookie_names = [
             "LIGHTRAG_TOKEN",
@@ -1288,7 +1289,10 @@ def create_app(args):
 
         for cookie_name in cookie_names:
             for variant in cookie_variants:
-                response.delete_cookie(key=cookie_name, **variant)
+                try:
+                    response.delete_cookie(key=cookie_name, **variant)
+                except Exception:
+                    pass
 
     @app.post("/logout")
     async def logout():

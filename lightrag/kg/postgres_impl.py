@@ -1138,6 +1138,13 @@ class PostgreSQLDB:
                 "new_type": "TEXT",
                 "description": "file_path to TEXT NULL",
             },
+            {
+                "table": "LIGHTRAG_RELATION_CHUNKS",
+                "column": "id",
+                "old_type": "character varying(512)",
+                "new_type": "VARCHAR(1024)",
+                "description": "relation chunk id from 512 to 1024",
+            },
         ]
 
         try:
@@ -1211,6 +1218,12 @@ class PostgreSQLDB:
                     elif (
                         migration["column"] == "file_path"
                         and current_type == "character varying"
+                    ):
+                        needs_migration = True
+                    elif (
+                        migration["table"] == "LIGHTRAG_RELATION_CHUNKS"
+                        and migration["column"] == "id"
+                        and current_length == 512
                     ):
                         needs_migration = True
 
@@ -5521,7 +5534,7 @@ TABLES = {
     },
     "LIGHTRAG_RELATION_CHUNKS": {
         "ddl": """CREATE TABLE LIGHTRAG_RELATION_CHUNKS (
-                    id VARCHAR(512),
+                    id VARCHAR(1024),
                     workspace VARCHAR(255),
                     chunk_ids JSONB,
                     count INTEGER,
