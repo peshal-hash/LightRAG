@@ -8,7 +8,7 @@ LOCATION="canadacentral"
 BICEP_FILE="${SCRIPT_DIR}/main.bicep"
 KEY_VAULT_NAME="salesopt-kv-test"
 
-POSTGRES_SERVER_NAME="salesopt-pg-server-dev-b7e59be4"
+POSTGRES_SERVER_NAME="salesopt-pg-server-dev"
 POSTGRES_ADMIN_USER="salesoptadmin"
 
 APP_NAME_LIGHTRAG="salesopt-lightrag"
