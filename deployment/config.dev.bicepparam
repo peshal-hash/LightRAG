@@ -1,7 +1,8 @@
-using './main.bicep'
+using './main-dev.bicep'
 
 param location = 'canadacentral'
 param environmentName = 'testAPContainerEnvironment'
+param appName = 'salesopt-lightrag-dev'
 param acrName = 'salesopttest'
 param appImageTag = 'latest'
 param revisionSuffix = ''

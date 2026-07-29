@@ -1,9 +1,9 @@
-name: Deploy to Azure Dev Environment
+name: Deploy to Azure Prod Environment
 
 on:
   push:
     branches:
-      - dev
+      - main
   workflow_dispatch:
 
 permissions:
@@ -12,12 +12,12 @@ permissions:
   checks: write
 
 env:
-  AZURE_RESOURCE_GROUP: testing-containers
-  AZURE_ACR_NAME: salesopttest
+  AZURE_RESOURCE_GROUP: salesoptai-container-prod
+  AZURE_ACR_NAME: salesoptaiprod
   AZURE_ENVIRONMENT_NAME: testAPContainerEnvironment
-  AZURE_LOCATION: eastus
-  AZURE_KEY_VAULT_NAME: salesopt-kv-test
-  APP_NAME_LIGHTRAG: salesopt-lightrag-dev
+  AZURE_LOCATION: canadacentral
+  AZURE_KEY_VAULT_NAME: salesoptai-prod-keyvault
+  APP_NAME_LIGHTRAG: salesopt-lightrag
   PYTHON_VERSION: "3.11"
 
 jobs:
@@ -25,7 +25,7 @@ jobs:
     name: Build and Deploy to Azure
     runs-on: ubuntu-latest
     environment:
-      name: development
+      name: production
       url: ${{ steps.deploy.outputs.app_url }}
 
     steps:
@@ -35,7 +35,7 @@ jobs:
       - name: Azure Login
         uses: azure/login@v1
         with:
-          creds: ${{ secrets.AZURE_STAGING_CREDENTIALS }}
+          creds: ${{ secrets.AZURE_CREDENTIALS_PROD }}
 
       - name: Set Correct Subscription Context
         shell: bash
@@ -64,7 +64,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          bicep build "${GITHUB_WORKSPACE}/deployment/main-dev.bicep"
+          bicep build "${GITHUB_WORKSPACE}/deployment/main.bicep"
 
       # Optional but very helpful: validate at RG scope (catches missing params, wrong API versions)
       - name: Bicep - Validate (resource group)
@@ -73,8 +73,8 @@ jobs:
           set -euo pipefail
           az deployment group validate \
             --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
-            --template-file "${GITHUB_WORKSPACE}/deployment/main-dev.bicep" \
-            --parameters "${GITHUB_WORKSPACE}/deployment/config.dev.bicepparam"
+            --template-file "${GITHUB_WORKSPACE}/deployment/main.bicep" \
+            --parameters "${GITHUB_WORKSPACE}/deployment/config.prod.bicepparam"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -91,7 +91,7 @@ jobs:
           chmod +x ./deploy.sh
 
           echo "Running deploy.sh..."
-          APP_URL=$(./deploy.sh --environment dev | tee /tmp/deploy.log | tail -n 1)
+          APP_URL=$(./deploy.sh --environment prod | tee /tmp/deploy.log | tail -n 1)
 
           echo "Deployment output tail:"
           tail -n 50 /tmp/deploy.log || true
@@ -132,7 +132,7 @@ jobs:
       - name: Azure Login
         uses: azure/login@v1
         with:
-          creds: ${{ secrets.AZURE_STAGING_CREDENTIALS }}
+          creds: ${{ secrets.AZURE_CREDENTIALS_PROD }}
 
       - name: Check and cleanup failed deployments
         shell: bash

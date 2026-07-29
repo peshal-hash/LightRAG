@@ -1,8 +1,8 @@
 param location string
 param environmentName string = 'testAPContainerEnvironment'
-param appName string = 'salesopt-lightrag'
-param acrName string = 'salesoptaiprod'
-param managedIdentityName string = 'salesoptai-prod-identity'
+param appName string = 'salesopt-lightrag-dev'
+param acrName string = 'salesopttest'
+param managedIdentityName string = 'salesopt-container-identity'
 param appImageTag string = 'latest'
 param revisionSuffix string = ''
 param keyVaultName string
@@ -10,7 +10,7 @@ param keyVaultName string
 param postgresServerName string
 param postgresAdminUser string
 
-param lightragStorageAccountName string = 'lightragfilesprod01'
+param lightragStorageAccountName string = 'lightragfilesdev01'
 param lightragRagShareName string = 'rag-storage'
 param lightragInputsShareName string = 'inputs'
 param lightragTiktokenShareName string = 'tiktoken-cache'
