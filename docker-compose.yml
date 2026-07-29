@@ -1,21 +1,56 @@
+version: '3.8'
+
 services:
   lightrag:
     container_name: lightrag
-    image: ghcr.io/hkuds/lightrag:latest
     build:
-      context: .
-      dockerfile: Dockerfile
-      tags:
-        - ghcr.io/hkuds/lightrag:latest
+      context: .                # folder containing the Dockerfile
+      dockerfile: Dockerfile    # or ./deploy/Dockerfile if it lives elsewhere
+    image: lightrag:1.0.0
+
     ports:
       - "${PORT:-9621}:9621"
     volumes:
-      - ./data/rag_storage:/app/data/rag_storage
-      - ./data/inputs:/app/data/inputs
+      - ./data/rag_storage:/app/rag_storage
+      - ./data/inputs:/app/inputs
       - ./config.ini:/app/config.ini
       - ./.env:/app/.env
     env_file:
       - .env
     restart: unless-stopped
+    depends_on:
+      lightrag_db:
+        condition: service_healthy
+
+    networks:
+      - app-network
     extra_hosts:
       - "host.docker.internal:host-gateway"
+
+  lightrag_db:
+    image: pgvector/pgvector:pg16
+    container_name: lightrag-postgres
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_HOST=${POSTGRES_HOST:-lightrag_db}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-abcd}
+      - POSTGRES_DB=${POSTGRES_DATABASE:-lightrag}
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DATABASE:-lightrag}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    external: true
+
+volumes:
+  postgres_data:

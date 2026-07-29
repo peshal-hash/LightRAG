@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
+import { useEffect, useState, useCallback, useMemo, useRef, Component, ErrorInfo, ReactNode } from 'react'
 // import { MiniMap } from '@react-sigma/minimap'
 import { SigmaContainer, useRegisterEvents, useSigma } from '@react-sigma/core'
 import { Settings as SigmaSettings } from 'sigma/settings'
@@ -28,9 +28,40 @@ import { labelColorDarkTheme, labelColorLightTheme } from '@/lib/constants'
 import '@react-sigma/core/lib/style.css'
 import '@react-sigma/graph-search/lib/style.css'
 
+// Check whether the browser can create a WebGL rendering context
+const canUseWebGL = (): boolean => {
+  try {
+    const canvas = document.createElement('canvas')
+    return !!(
+      window.WebGLRenderingContext &&
+      (canvas.getContext('webgl') || canvas.getContext('experimental-webgl'))
+    )
+  } catch {
+    return false
+  }
+}
+
+// Error boundary to catch any remaining WebGL runtime errors inside SigmaContainer
+class SigmaErrorBoundary extends Component<
+  { children: ReactNode; fallback: ReactNode },
+  { hasError: boolean }
+> {
+  state: { hasError: boolean } = { hasError: false }
+
+  static getDerivedStateFromError(): { hasError: boolean } {
+    return { hasError: true }
+  }
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error('SigmaContainer render error:', error, info)
+  }
+  render() {
+    if (this.state.hasError) return this.props.fallback
+    return this.props.children
+  }
+}
+
 // Function to create sigma settings based on theme
 const createSigmaSettings = (isDarkTheme: boolean): Partial<SigmaSettings> => ({
-  allowInvalidContainer: true,
   defaultNodeType: 'default',
   defaultEdgeType: 'curvedNoArrow',
   renderEdgeLabels: false,
@@ -109,6 +140,7 @@ const GraphEvents = () => {
 
 const GraphViewer = () => {
   const [isThemeSwitching, setIsThemeSwitching] = useState(false)
+  const [webGLSupported] = useState(() => canUseWebGL())
   const sigmaRef = useRef<any>(null)
   const prevTheme = useRef<string>('')
 
@@ -124,8 +156,11 @@ const GraphViewer = () => {
   const theme = useSettingsStore.use.theme()
 
   // Memoize sigma settings to prevent unnecessary re-creation
+  // Handle 'system' theme by reading the OS preference at memo time
   const memoizedSigmaSettings = useMemo(() => {
-    const isDarkTheme = theme === 'dark'
+    const isDarkTheme =
+      theme === 'dark' ||
+      (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
     return createSigmaSettings(isDarkTheme)
   }, [theme])
 
@@ -191,9 +226,24 @@ const GraphViewer = () => {
     [selectedNode]
   )
 
+  const webGLFallback = (
+    <div className="flex h-full w-full items-center justify-center bg-background text-center p-4">
+      <div>
+        <p className="font-semibold text-lg mb-2">Graph visualization unavailable</p>
+        <p className="text-sm text-muted-foreground">
+          WebGL is not supported or has been blocked by your browser or an extension.<br />
+          Try disabling privacy extensions (e.g. Privacy Badger, uBlock Origin canvas blocking) or use a different browser.
+        </p>
+      </div>
+    </div>
+  )
+
+  if (!webGLSupported) return webGLFallback
+
   // Always render SigmaContainer but control its visibility with CSS
   return (
     <div className="relative h-full w-full overflow-hidden">
+      <SigmaErrorBoundary fallback={webGLFallback}>
       <SigmaContainer
         settings={memoizedSigmaSettings}
         className="!bg-background !size-full overflow-hidden"
@@ -243,6 +293,7 @@ const GraphViewer = () => {
 
         <SettingsDisplay />
       </SigmaContainer>
+      </SigmaErrorBoundary>
 
       {/* Loading overlay - shown when data is loading or theme is switching */}
       {(isFetching || isThemeSwitching) && (

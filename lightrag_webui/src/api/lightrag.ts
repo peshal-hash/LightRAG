@@ -333,27 +333,51 @@ const silentRefreshGuestToken = async (): Promise<string> => {
 
   return refreshTokenPromise;
 };
+const getResolvedWorkspace = (): string | null => {
+  if (typeof window === 'undefined') return null;
 
-// Interceptor: add api key and check authentication
+  // 1. Priority: URL Parameter (e.g. ?workspace=user-123)
+  // This allows deep-linking to specific workspaces
+  const params = new URLSearchParams(window.location.search);
+  const urlWorkspace = params.get('workspace');
+
+  if (urlWorkspace) {
+    // If found in URL, persist it to LocalStorage so it sticks
+    // if the user navigates to a cleaner URL later
+    localStorage.setItem('LIGHTRAG-WORKSPACE', urlWorkspace);
+    return urlWorkspace;
+  }
+
+  // 2. Fallback: LocalStorage
+  // This acts as the persistent "session" workspace
+  const storedWorkspace = localStorage.getItem('LIGHTRAG-WORKSPACE');
+  if (storedWorkspace) {
+    return storedWorkspace;
+  }
+
+  return null;
+};
 axiosInstance.interceptors.request.use((config) => {
+  // Ensure headers object exists
+  config.headers = (config.headers ?? {}) as any;
+
   // Skip interceptor for token refresh requests
-  if (config.headers['X-Skip-Interceptor']) {
-    delete config.headers['X-Skip-Interceptor'];
+  if ((config.headers as any)['X-Skip-Interceptor']) {
+    delete (config.headers as any)['X-Skip-Interceptor'];
     return config;
   }
 
-  const apiKey = useSettingsStore.getState().apiKey
+  const apiKey = useSettingsStore.getState().apiKey;
   const token = localStorage.getItem('LIGHTRAG-API-TOKEN');
+  const workspace = getResolvedWorkspace();
 
-  // Always include token if it exists, regardless of path
-  if (token) {
-    config.headers['Authorization'] = `Bearer ${token}`
-  }
-  if (apiKey) {
-    config.headers['X-API-Key'] = apiKey
-  }
-  return config
-})
+  if (token) (config.headers as any)['Authorization'] = `Bearer ${token}`;
+  if (apiKey) (config.headers as any)['X-API-Key'] = apiKey;
+  if (workspace) (config.headers as any)['LIGHTRAG-WORKSPACE'] = workspace;
+
+  return config;
+});
+
 
 // Interceptor：handle token renewal and authentication errors
 axiosInstance.interceptors.response.use(
@@ -512,7 +536,6 @@ export const queryText = async (request: QueryRequest): Promise<QueryResponse> =
   const response = await axiosInstance.post('/query', request)
   return response.data
 }
-
 export const queryTextStream = async (
   request: QueryRequest,
   onChunk: (chunk: string) => void,
@@ -520,17 +543,19 @@ export const queryTextStream = async (
 ) => {
   const apiKey = useSettingsStore.getState().apiKey;
   const token = localStorage.getItem('LIGHTRAG-API-TOKEN');
+  
+  // NEW: Get workspace
+  const workspace = getResolvedWorkspace();
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
     'Accept': 'application/x-ndjson',
   };
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-  if (apiKey) {
-    headers['X-API-Key'] = apiKey;
-  }
-
+  
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  if (apiKey) headers['X-API-Key'] = apiKey;
+  
+  // NEW: Inject Header
+  if (workspace) headers['LIGHTRAG-WORKSPACE'] = workspace;
   try {
     const response = await fetch(`${backendBaseUrl}/query/stream`, {
       method: 'POST',
@@ -544,6 +569,7 @@ export const queryTextStream = async (
         // Check if in guest mode
         const authStore = useAuthStore.getState();
         const currentToken = localStorage.getItem('LIGHTRAG-API-TOKEN');
+        
         const isGuest = currentToken && authStore.isGuestMode;
 
         if (isGuest) {

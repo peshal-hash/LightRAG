@@ -2,13 +2,16 @@
 LightRAG FastAPI Server
 """
 
-from fastapi import FastAPI, Depends, HTTPException, Request
+from fastapi import FastAPI, Depends, HTTPException, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.openapi.docs import (
     get_swagger_ui_html,
     get_swagger_ui_oauth2_redirect_html,
 )
+from contextvars import ContextVar
+import shutil
+from functools import partial
 import os
 import logging
 import logging.config
@@ -283,6 +286,131 @@ def check_frontend_build():
         logger.warning(f"Failed to check frontend source freshness: {e}")
         return (True, False)  # Assume assets exist and up-to-date on error
 
+# ==========================================
+# MULTI-TENANT LOGIC START
+# ==========================================
+
+# 1. Context Variable to track who is making the request
+current_rag_instance_cv = ContextVar("current_rag_instance", default=None)
+
+class MultiTenantRAGManager:
+    """
+    Factory that manages separate LightRAG folders for every User/KB combo.
+    Path: ./data/rag_storage/{user_id}-{kb_id}
+    """
+    def __init__(self, global_args, llm_func_creator, embedding_func, rerank_func, ollama_info, llm_timeout, embedding_timeout):
+        self.instances = {}
+        self.args = global_args
+        self.llm_func_creator = llm_func_creator
+        self.embedding_func = embedding_func
+        self.rerank_func = rerank_func
+        self.ollama_info = ollama_info
+        self.llm_timeout = llm_timeout
+        self.embedding_timeout = embedding_timeout
+        
+        # We need a 'default' instance for startup checks and background tasks
+        self.default_instance = None
+
+    async def get_instance(self, workspace: str) -> LightRAG:
+        # Sanitize input to prevent directory traversal attacks
+        safe_ws = "".join([c for c in workspace if c.isalnum() or c in "-_"])
+        if not safe_ws: safe_ws = "default"
+
+        # Return cached instance (Hot Memory)
+        if safe_ws in self.instances:
+            return self.instances[safe_ws]
+
+        # -------------------------------------------------
+        # PHYSICAL ISOLATION: Create unique folder per workspace
+        # -------------------------------------------------
+        base_path = Path(self.args.working_dir) / safe_ws
+        base_path.mkdir(parents=True, exist_ok=True)
+        
+        logger.info(f"⚡ [Multi-Tenant] Loading Workspace: {safe_ws} at {base_path}")
+
+        # Re-create LLM function (Thread-safe)
+        llm_func = self.llm_func_creator(self.args.llm_binding)
+
+        new_rag = LightRAG(
+            working_dir=str(base_path),
+            workspace=safe_ws,
+            llm_model_func=llm_func,
+            llm_model_name=self.args.llm_model,
+            llm_model_max_async=self.args.max_async,
+            summary_max_tokens=self.args.summary_max_tokens,
+            summary_context_size=self.args.summary_context_size,
+            chunk_token_size=int(self.args.chunk_size),
+            chunk_overlap_token_size=int(self.args.chunk_overlap_size),
+            llm_model_kwargs=create_llm_model_kwargs(self.args.llm_binding, self.args, self.llm_timeout),
+            embedding_func=self.embedding_func, # Share the embedding model (saves RAM)
+            default_llm_timeout=self.llm_timeout,
+            default_embedding_timeout=self.embedding_timeout,
+            kv_storage=self.args.kv_storage,
+            graph_storage=self.args.graph_storage,
+            vector_storage=self.args.vector_storage,
+            doc_status_storage=self.args.doc_status_storage,
+            vector_db_storage_cls_kwargs={"cosine_better_than_threshold": self.args.cosine_threshold},
+            enable_llm_cache_for_entity_extract=self.args.enable_llm_cache_for_extract,
+            enable_llm_cache=self.args.enable_llm_cache,
+            rerank_model_func=self.rerank_func,
+            max_parallel_insert=self.args.max_parallel_insert,
+            max_graph_nodes=self.args.max_graph_nodes,
+            addon_params={"language": self.args.summary_language, "entity_types": self.args.entity_types},
+            ollama_server_infos=self.ollama_info,
+        )
+
+        await new_rag.initialize_storages()
+        self.instances[safe_ws] = new_rag
+        
+        if safe_ws == "default":
+            self.default_instance = new_rag
+            
+        return new_rag
+
+class MultiTenantProxy:
+    """
+    Transparent Proxy. 
+    It doesn't know WHO the user is, it just asks the ContextVar:
+    "Give me the RAG instance for the current active request."
+    """
+    def __init__(self, manager):
+        self.manager = manager
+
+    def __getattr__(self, name):
+        # 1. Try to get the instance active for this specific request
+        instance = current_rag_instance_cv.get()
+        
+        # 2. Fallback: If no request is active (e.g. startup), use default
+        if instance is None:
+            if self.manager.default_instance:
+                instance = self.manager.default_instance
+            else:
+                # Should not happen if lifespan is correct
+                logger.warning("Proxy accessed without active context! Returning None.")
+                return None
+
+        # 3. Return the attribute (Method or Property) from the real instance
+        return getattr(instance, name)
+
+# ==========================================
+# ==========================================
+# MULTI-TENANT LOGIC END
+# ==========================================
+
+# Helper needed for the Manager above
+def create_llm_model_kwargs(binding: str, args, llm_timeout: int) -> dict:
+    if binding in ["lollms", "ollama"]:
+        try:
+            from lightrag.llm.binding_options import OllamaLLMOptions
+            return {
+                "host": args.llm_binding_host,
+                "timeout": llm_timeout,
+                "options": OllamaLLMOptions.options_dict(args),
+                "api_key": args.llm_binding_api_key,
+            }
+        except ImportError:
+            pass
+    return {}
 
 def create_app(args):
     # Check frontend build first and get status
@@ -328,7 +456,9 @@ def create_app(args):
 
     if args.embedding_binding_host is None:
         args.embedding_binding_host = get_default_host(args.embedding_binding)
-
+        
+    api_key = os.getenv("LIGHTRAG_API_KEY") or args.key
+    doc_manager = DocumentManager(args.input_dir, workspace=args.workspace)
     # Add SSL validation
     if args.ssl:
         if not args.ssl_certfile or not args.ssl_keyfile:
@@ -349,34 +479,21 @@ def create_app(args):
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         """Lifespan context manager for startup and shutdown events"""
-        # Store background tasks
         app.state.background_tasks = set()
-
         try:
-            # Initialize database connections
-            # Note: initialize_storages() now auto-initializes pipeline_status for rag.workspace
-            await rag.initialize_storages()
-
-            # Data migration regardless of storage implementation
-            await rag.check_and_migrate_data()
+            # CHANGE: Instead of rag.initialize_storages(), we initialize the 'default' one
+            # to ensure the server is healthy.
+            logger.info("Initializing default workspace...")
+            await rag_manager.get_instance("default")
+            
+            # await rag.check_and_migrate_data() # (Optional: Skip for proxy)
 
             ASCIIColors.green("\nServer is ready to accept connections! 🚀\n")
-
             yield
-
         finally:
-            # Clean up database connections
-            await rag.finalize_storages()
-
-            if "LIGHTRAG_GUNICORN_MODE" not in os.environ:
-                # Only perform cleanup in Uvicorn single-process mode
-                logger.debug("Unvicorn Mode: finalizing shared storage...")
-                finalize_share_data()
-            else:
-                # In Gunicorn mode with preload_app=True, cleanup is handled by on_exit hooks
-                logger.debug(
-                    "Gunicorn Mode: postpone shared storage finalization to master process"
-                )
+            # CHANGE: We can't easily finalize shared storage for everyone here
+            # but usually it's fine to just let the process exit.
+            pass
 
     # Initialize FastAPI
     base_description = (
@@ -405,8 +522,37 @@ def create_app(args):
     }
 
     app = FastAPI(**app_kwargs)
+    @app.middleware("http")
+    async def multi_tenant_middleware(request: Request, call_next):
+        if (
+            request.url.path in ["/health", "/docs", "/openapi.json", "/redoc", "/auth-status", "/login","/logout"]
+            or request.url.path.startswith("/webui")
+            or request.url.path.startswith("/static")
+        ):
+            return await call_next(request)
 
-    # Add custom validation error handler for /query/data endpoint
+        # 1. Extract Header
+        workspace = request.headers.get("LIGHTRAG-WORKSPACE")
+
+        # 2. Strict Validation (No Default Fallback)
+        if not workspace or not workspace.strip() or workspace == "default":
+            return JSONResponse(
+                status_code=403,
+                content={"detail": "Missing or Invalid Tenant Header: LIGHTRAG-WORKSPACE. Format: {user_id}-{kb_id}"}
+            )
+
+        try:
+            rag_instance = await rag_manager.get_instance(workspace)
+        except Exception as e:
+            logger.error(f"Tenant initialization failed: {e}")
+            return JSONResponse(status_code=500, content={"detail": "Tenant initialization failed"})
+
+        token = current_rag_instance_cv.set(rag_instance)
+        try:
+            return await call_next(request)
+        finally:
+            current_rag_instance_cv.reset(token)
+
     @app.exception_handler(RequestValidationError)
     async def validation_exception_handler(
         request: Request, exc: RequestValidationError
@@ -626,24 +772,6 @@ def create_app(args):
         except ImportError as e:
             raise Exception(f"Failed to import {binding} LLM binding: {e}")
 
-    def create_llm_model_kwargs(binding: str, args, llm_timeout: int) -> dict:
-        """
-        Create LLM model kwargs based on binding type.
-        Uses lazy import for binding-specific options.
-        """
-        if binding in ["lollms", "ollama"]:
-            try:
-                from lightrag.llm.binding_options import OllamaLLMOptions
-
-                return {
-                    "host": args.llm_binding_host,
-                    "timeout": llm_timeout,
-                    "options": OllamaLLMOptions.options_dict(args),
-                    "api_key": args.llm_binding_api_key,
-                }
-            except ImportError as e:
-                raise Exception(f"Failed to import {binding} options: {e}")
-        return {}
 
     def create_optimized_embedding_function(
         config_cache: LLMConfigCache, binding, model, host, api_key, args
@@ -1049,42 +1177,20 @@ def create_app(args):
 
     # Initialize RAG with unified configuration
     try:
-        rag = LightRAG(
-            working_dir=args.working_dir,
-            workspace=args.workspace,
-            llm_model_func=create_llm_model_func(args.llm_binding),
-            llm_model_name=args.llm_model,
-            llm_model_max_async=args.max_async,
-            summary_max_tokens=args.summary_max_tokens,
-            summary_context_size=args.summary_context_size,
-            chunk_token_size=int(args.chunk_size),
-            chunk_overlap_token_size=int(args.chunk_overlap_size),
-            llm_model_kwargs=create_llm_model_kwargs(
-                args.llm_binding, args, llm_timeout
-            ),
+        # Initialize the Manager with all the config collected so far
+        rag_manager = MultiTenantRAGManager(
+            global_args=args,
+            llm_func_creator=create_llm_model_func, # Pass the factory function
             embedding_func=embedding_func,
-            default_llm_timeout=llm_timeout,
-            default_embedding_timeout=embedding_timeout,
-            kv_storage=args.kv_storage,
-            graph_storage=args.graph_storage,
-            vector_storage=args.vector_storage,
-            doc_status_storage=args.doc_status_storage,
-            vector_db_storage_cls_kwargs={
-                "cosine_better_than_threshold": args.cosine_threshold
-            },
-            enable_llm_cache_for_entity_extract=args.enable_llm_cache_for_extract,
-            enable_llm_cache=args.enable_llm_cache,
-            rerank_model_func=rerank_model_func,
-            max_parallel_insert=args.max_parallel_insert,
-            max_graph_nodes=args.max_graph_nodes,
-            addon_params={
-                "language": args.summary_language,
-                "entity_types": args.entity_types,
-            },
-            ollama_server_infos=ollama_server_infos,
+            rerank_func=rerank_model_func,
+            ollama_info=ollama_server_infos,
+            llm_timeout=llm_timeout,
+            embedding_timeout=embedding_timeout
         )
+        rag = MultiTenantProxy(rag_manager)
+
     except Exception as e:
-        logger.error(f"Failed to initialize LightRAG: {e}")
+        logger.error(f"Failed to initialize Multi-Tenant System: {e}")
         raise
 
     # Add routes
@@ -1158,7 +1264,46 @@ def create_app(args):
             "webui_title": webui_title,
             "webui_description": webui_description,
         }
+        
+    def clear_lightrag_cookies(response: Response) -> None:
+        cookie_names = [
+            "LIGHTRAG_TOKEN",
+            "LIGHTRAG_ACCESS_TOKEN",
+            "LIGHTRAG_REFRESH_TOKEN",
+            "LIGHTRAG_AUTH",
+            "LIGHTRAG_SESSION",
+            "access_token",
+            "refresh_token",
+            "token",
+            "auth_token",
+            "session",
+            "workspace",
+            "LIGHTRAG_WORKSPACE",
+        ]
 
+        cookie_variants = [
+            {"path": "/"},
+            {"path": "/", "secure": True, "samesite": "none"},
+            {"path": "/", "samesite": "lax"},
+        ]
+
+        for cookie_name in cookie_names:
+            for variant in cookie_variants:
+                try:
+                    response.delete_cookie(key=cookie_name, **variant)
+                except Exception:
+                    pass
+
+    @app.post("/logout")
+    async def logout():
+        response = JSONResponse(
+            content={
+                "success": True,
+                "message": "Logged out successfully. LightRAG cookies cleared.",
+            }
+        )
+        clear_lightrag_cookies(response)
+        return response
     @app.post("/login")
     async def login(form_data: OAuth2PasswordRequestForm = Depends()):
         if not auth_handler.accounts:
@@ -1232,8 +1377,11 @@ def create_app(args):
         try:
             workspace = get_workspace_from_request(request)
             default_workspace = get_default_workspace()
+            if workspace is not None and workspace != "default":
+                await rag_manager.get_instance(workspace)
             if workspace is None:
                 workspace = default_workspace
+
             pipeline_status = await get_namespace_data(
                 "pipeline_status", workspace=workspace
             )
