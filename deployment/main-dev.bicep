@@ -4,6 +4,7 @@ param appName string = 'salesopt-lightrag-dev'
 param acrName string = 'salesopttest'
 param managedIdentityName string = 'salesopt-container-identity'
 param appImageTag string = 'latest'
+param appImageName string = 'salesopt-lightrag-dev'
 param revisionSuffix string = ''
 param keyVaultName string
 
@@ -15,6 +16,9 @@ param lightragRagShareName string = 'rag-storage'
 param lightragInputsShareName string = 'inputs'
 param lightragTiktokenShareName string = 'tiktoken-cache'
 param useExistingStorage bool = true
+param ragEnvStorageName string = 'rag-storage-dev'
+param inputsEnvStorageName string = 'inputs-storage-dev'
+param tiktokenEnvStorageName string = 'tiktoken-storage-dev'
 param runPgVectorInit bool = false
 
 resource acr 'Microsoft.ContainerRegistry/registries@2023-07-01' existing = {
@@ -78,7 +82,7 @@ resource initPgVector 'Microsoft.Resources/deploymentScripts@2023-08-01' = if (r
     retentionInterval: 'P1D'
     cleanupPreference: 'OnSuccess'
     // Any change here forces script re-run on redeploys
-    forceUpdateTag: '${uniqueString(resourceGroup().id, revisionSuffix, appImageTag)}'
+    forceUpdateTag: uniqueString(resourceGroup().id, revisionSuffix, appImageTag)
 
     environmentVariables: [
       {
@@ -180,7 +184,7 @@ resource tiktokenShare 'Microsoft.Storage/storageAccounts/fileServices/shares@20
 
 resource ragEnvStorage 'Microsoft.App/managedEnvironments/storages@2023-05-01' = {
   parent: existingEnvironment
-  name: 'rag-storage'
+  name: ragEnvStorageName
   properties: {
     azureFile: {
       accountName: lightragStorageName
@@ -196,7 +200,7 @@ resource ragEnvStorage 'Microsoft.App/managedEnvironments/storages@2023-05-01' =
 
 resource inputsEnvStorage 'Microsoft.App/managedEnvironments/storages@2023-05-01' = {
   parent: existingEnvironment
-  name: 'inputs-storage'
+  name: inputsEnvStorageName
   properties: {
     azureFile: {
       accountName: lightragStorageName
@@ -212,7 +216,7 @@ resource inputsEnvStorage 'Microsoft.App/managedEnvironments/storages@2023-05-01
 
 resource tiktokenEnvStorage 'Microsoft.App/managedEnvironments/storages@2023-05-01' = {
   parent: existingEnvironment
-  name: 'tiktoken-storage'
+  name: tiktokenEnvStorageName
   properties: {
     azureFile: {
       accountName: lightragStorageName
@@ -286,7 +290,7 @@ resource lightRAG 'Microsoft.App/containerApps@2023-05-01' = {
       revisionSuffix: revisionSuffix
       containers: [
         {
-          image: '${acr.properties.loginServer}/salesopt-lightrag:${appImageTag}'
+          image: '${acr.properties.loginServer}/${appImageName}:${appImageTag}'
           name: 'lightrag-service'
           resources: {
             cpu: json('1.0')
