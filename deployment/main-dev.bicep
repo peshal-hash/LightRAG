@@ -4,6 +4,7 @@ param appName string = 'salesopt-lightrag-dev'
 param acrName string = 'salesopttest'
 param managedIdentityName string = 'salesopt-container-identity'
 param appImageTag string = 'latest'
+param appImageName string = 'salesopt-lightrag-dev'
 param revisionSuffix string = ''
 param keyVaultName string
 
@@ -289,7 +290,7 @@ resource lightRAG 'Microsoft.App/containerApps@2023-05-01' = {
       revisionSuffix: revisionSuffix
       containers: [
         {
-          image: '${acr.properties.loginServer}/salesopt-lightrag:${appImageTag}'
+          image: '${acr.properties.loginServer}/${appImageName}:${appImageTag}'
           name: 'lightrag-service'
           resources: {
             cpu: json('1.0')
