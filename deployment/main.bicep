@@ -16,6 +16,9 @@ param lightragRagShareName string = 'rag-storage'
 param lightragInputsShareName string = 'inputs'
 param lightragTiktokenShareName string = 'tiktoken-cache'
 param useExistingStorage bool = true
+param ragEnvStorageName string = 'rag-storage'
+param inputsEnvStorageName string = 'inputs-storage'
+param tiktokenEnvStorageName string = 'tiktoken-storage'
 param runPgVectorInit bool = false
 
 resource acr 'Microsoft.ContainerRegistry/registries@2023-07-01' existing = {
@@ -25,9 +28,11 @@ resource acr 'Microsoft.ContainerRegistry/registries@2023-07-01' existing = {
 resource managedIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' existing = {
   name: managedIdentityName
 }
+param environmentResourceGroup string = resourceGroup().name
 
 resource existingEnvironment 'Microsoft.App/managedEnvironments@2023-05-01' existing = {
   name: environmentName
+  scope: resourceGroup(environmentResourceGroup)
 }
 
 resource keyVault 'Microsoft.KeyVault/vaults@2023-02-01' existing = {
@@ -163,68 +168,20 @@ var storageDependsOn = useExistingStorage ? [] : [lightragStorage]
 
 resource ragShare 'Microsoft.Storage/storageAccounts/fileServices/shares@2023-01-01' = {
   name: '${lightragStorageName}/default/${lightragRagShareName}'
-  properties: { shareQuota: 100 }
+  properties: { shareQuota: 100, accessTier: 'TransactionOptimized' }
   dependsOn: storageDependsOn
 }
 
 resource inputsShare 'Microsoft.Storage/storageAccounts/fileServices/shares@2023-01-01' = {
   name: '${lightragStorageName}/default/${lightragInputsShareName}'
-  properties: { shareQuota: 100 }
+  properties: { shareQuota: 100, accessTier: 'TransactionOptimized' }
   dependsOn: storageDependsOn
 }
 
 resource tiktokenShare 'Microsoft.Storage/storageAccounts/fileServices/shares@2023-01-01' = {
   name: '${lightragStorageName}/default/${lightragTiktokenShareName}'
-  properties: { shareQuota: 10 }
+  properties: { shareQuota: 10, accessTier: 'TransactionOptimized' }
   dependsOn: storageDependsOn
-}
-
-resource ragEnvStorage 'Microsoft.App/managedEnvironments/storages@2023-05-01' = {
-  parent: existingEnvironment
-  name: 'rag-storage'
-  properties: {
-    azureFile: {
-      accountName: lightragStorageName
-      shareName: lightragRagShareName
-      accountKey: lightragStorageKey
-      accessMode: 'ReadWrite'
-    }
-  }
-  dependsOn: [
-    ragShare
-  ]
-}
-
-resource inputsEnvStorage 'Microsoft.App/managedEnvironments/storages@2023-05-01' = {
-  parent: existingEnvironment
-  name: 'inputs-storage'
-  properties: {
-    azureFile: {
-      accountName: lightragStorageName
-      shareName: lightragInputsShareName
-      accountKey: lightragStorageKey
-      accessMode: 'ReadWrite'
-    }
-  }
-  dependsOn: [
-    inputsShare
-  ]
-}
-
-resource tiktokenEnvStorage 'Microsoft.App/managedEnvironments/storages@2023-05-01' = {
-  parent: existingEnvironment
-  name: 'tiktoken-storage'
-  properties: {
-    azureFile: {
-      accountName: lightragStorageName
-      shareName: lightragTiktokenShareName
-      accountKey: lightragStorageKey
-      accessMode: 'ReadWrite'
-    }
-  }
-  dependsOn: [
-    tiktokenShare
-  ]
 }
 
 resource lightRAG 'Microsoft.App/containerApps@2023-05-01' = {
@@ -437,17 +394,17 @@ resource lightRAG 'Microsoft.App/containerApps@2023-05-01' = {
         {
           name: 'rag-storage-vol'
           storageType: 'AzureFile'
-          storageName: ragEnvStorage.name
+          storageName: ragEnvStorageName
         }
         {
           name: 'inputs-vol'
           storageType: 'AzureFile'
-          storageName: inputsEnvStorage.name
+          storageName: inputsEnvStorageName
         }
         {
           name: 'tiktoken-vol'
           storageType: 'AzureFile'
-          storageName: tiktokenEnvStorage.name
+          storageName: tiktokenEnvStorageName
         }
       ]
     }
@@ -457,18 +414,12 @@ resource lightRAG 'Microsoft.App/containerApps@2023-05-01' = {
         ragShare
         inputsShare
         tiktokenShare
-        ragEnvStorage
-        inputsEnvStorage
-        tiktokenEnvStorage
       ]
     : [
         ragShare
         inputsShare
         tiktokenShare
         lightragStorage
-        ragEnvStorage
-        inputsEnvStorage
-        tiktokenEnvStorage
       ]
 }
 

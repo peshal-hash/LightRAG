@@ -8,6 +8,7 @@ LOCATION="canadacentral"
 BICEP_FILE="${SCRIPT_DIR}/main-dev.bicep"
 KEY_VAULT_NAME="salesopt-kv-test"
 AZURE_ENVIRONMENT_NAME="testAPContainerEnvironment"
+AZURE_ENVIRONMENT_RESOURCE_GROUP="testing-containers"
 
 # Dev keeps salesopt-container-identity: in the testing-containers RG this
 # resolves to the identity that already holds AcrPull on salesopttest and
