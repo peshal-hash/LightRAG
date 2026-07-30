@@ -103,7 +103,7 @@ function deploy_infrastructure() {
       --name "$deployment_name" \
       --resource-group "$RESOURCE_GROUP" \
       --template-file "$BICEP_FILE" \
-      --parameters appImageTag="$IMAGE_TAG" appImageName="$(basename "$APP_NAME_LIGHTRAG")" location="$LOCATION" revisionSuffix="$REVISION_SUFFIX" environmentName="$AZURE_ENVIRONMENT_NAME" appName="$APP_NAME_LIGHTRAG" acrName="$ACR_NAME" managedIdentityName="$MANAGED_IDENTITY_NAME" keyVaultName="$KEY_VAULT_NAME" postgresServerName="$POSTGRES_SERVER_NAME" postgresAdminUser="$POSTGRES_ADMIN_USER" \
+      --parameters appImageTag="$IMAGE_TAG" appImageName="$(basename "$APP_NAME_LIGHTRAG")" location="$LOCATION" revisionSuffix="$REVISION_SUFFIX" environmentName="$AZURE_ENVIRONMENT_NAME" environmentResourceGroup="$AZURE_ENVIRONMENT_RESOURCE_GROUP" appName="$APP_NAME_LIGHTRAG" acrName="$ACR_NAME" managedIdentityName="$MANAGED_IDENTITY_NAME" keyVaultName="$KEY_VAULT_NAME" postgresServerName="$POSTGRES_SERVER_NAME" postgresAdminUser="$POSTGRES_ADMIN_USER" \
       --output none >&2
 
     # Read the FQDN from the completed deployment in a separate, clean call so no

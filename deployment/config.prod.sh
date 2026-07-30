@@ -21,6 +21,7 @@ KEY_VAULT_NAME="salesoptai-prod-keyvault"
 # FQDN, and cross-region storage + Postgres mounts. Keep both in sync with
 # LOCATION above -- a container app must be in the same region as its environment.
 AZURE_ENVIRONMENT_NAME="testAPContainerEnvironment"
+AZURE_ENVIRONMENT_RESOURCE_GROUP="testing-containers"
 
 POSTGRES_SERVER_NAME="salesopt-pg-server-prod"
 POSTGRES_ADMIN_USER="salesoptadmin"
