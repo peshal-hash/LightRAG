@@ -137,6 +137,9 @@ interface GraphState {
   graphDataVersion: number
   incrementGraphDataVersion: () => void
 
+  // Re-fetch the graph from the backend on the next render.
+  triggerGraphRefresh: () => void
+
   // Methods for updating graph elements and UI state together
   updateNodeAndSelect: (nodeId: string, entityId: string, propertyName: string, newValue: string) => Promise<void>
   updateEdgeAndSelect: (edgeId: string, dynamicId: string, sourceId: string, targetId: string, propertyName: string, newValue: string) => Promise<void>
@@ -230,6 +233,20 @@ const useGraphStoreBase = create<GraphState>()((set, get) => ({
   // Version counter implementation
   graphDataVersion: 0,
   incrementGraphDataVersion: () => set((state) => ({ graphDataVersion: state.graphDataVersion + 1 })),
+
+  // The graph only re-fetches when `graphDataFetchAttempted` is false AND the
+  // version counter changes — clearing the flag alone is not enough, because
+  // the fetch effect will not re-run without a dependency change. Both steps
+  // plus clearing the cached label are what the manual refresh button does, so
+  // they live here and are reused by every caller that needs fresh data.
+  triggerGraphRefresh: () => {
+    set({
+      graphDataFetchAttempted: false,
+      lastSuccessfulQueryLabel: '',
+      typeColorMap: new Map<string, string>() // legend is rebuilt from the new data
+    })
+    set((state) => ({ graphDataVersion: state.graphDataVersion + 1 }))
+  },
 
   // Methods for updating graph elements and UI state together
   updateNodeAndSelect: async (nodeId: string, entityId: string, propertyName: string, newValue: string) => {

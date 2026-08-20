@@ -255,7 +255,10 @@ const GraphViewer = () => {
 
         <FocusOnNode node={autoFocusedNode} move={moveToSelectedNode} />
 
-        <div className="absolute top-2 left-2 flex items-start gap-2">
+        {/* Stacks the label picker above the search box on a phone (they do
+            not fit side by side) and is width-bounded so it cannot run under
+            the properties panel pinned to the top right. */}
+        <div className="absolute top-2 left-2 right-2 z-10 flex max-w-full flex-col items-stretch gap-2 sm:right-auto sm:max-w-[calc(100%-1rem)] sm:flex-row sm:items-start">
           <GraphLabels />
           {showNodeSearchBar && !isThemeSwitching && (
             <GraphSearch
@@ -275,14 +278,19 @@ const GraphViewer = () => {
           {/* <ThemeToggle /> */}
         </div>
 
+        {/* On a phone the controls above occupy the top strip, so the panel is
+            docked to the bottom (clear of the zoom/layout column on the left)
+            and capped in height so it never swallows the whole canvas. */}
         {showPropertyPanel && (
-          <div className="absolute top-2 right-2 z-10">
+          <div className="absolute right-2 bottom-2 left-14 z-10 max-h-[45%] overflow-auto sm:top-2 sm:bottom-auto sm:left-auto sm:max-h-[calc(100%-1rem)]">
             <PropertiesView />
           </div>
         )}
 
+        {/* Hidden on phones: it would sit on top of the properties panel, and
+            the canvas is the thing worth seeing at that size. */}
         {showLegend && (
-          <div className="absolute bottom-10 right-2 z-0">
+          <div className="absolute bottom-10 right-2 z-0 hidden sm:block">
             <Legend className="bg-background/60 backdrop-blur-lg" />
           </div>
         )}

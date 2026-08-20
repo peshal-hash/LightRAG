@@ -685,8 +685,12 @@ export default function RetrievalTesting() {
   }, [t])
 
   return (
-    <div className="flex size-full gap-2 px-2 pb-12 overflow-hidden">
-      <div className="flex grow flex-col gap-4">
+    // Stacks on phones (chat first, settings underneath) and becomes the
+    // side-by-side layout once there is room for the 280px settings column.
+    // The whole thing scrolls vertically when stacked, since two panels cannot
+    // both own the viewport height on a short screen.
+    <div className="flex size-full flex-col gap-2 overflow-y-auto px-2 pb-12 lg:flex-row lg:overflow-hidden">
+      <div className="flex min-h-[60vh] min-w-0 grow flex-col gap-4 lg:min-h-0">
         <div className="relative grow">
           <div
             ref={messagesContainerRef}

@@ -73,15 +73,6 @@ const GraphLabels = () => {
     }
   }, [dropdownRefreshTrigger])
 
-  // Monitor pipeline state changes: busy -> idle
-  useEffect(() => {
-    if (prevPipelineBusy.current === true && pipelineBusy === false) {
-      console.log('Pipeline changed from busy to idle, marking for popular labels refresh')
-      shouldRefreshPopularLabelsRef.current = true
-    }
-    prevPipelineBusy.current = pipelineBusy
-  }, [pipelineBusy])
-
   // Helper: Reload popular labels from backend
   const reloadPopularLabels = useCallback(async () => {
     if (!shouldRefreshPopularLabelsRef.current) return
@@ -115,6 +106,26 @@ const GraphLabels = () => {
       setSelectKey(prev => prev + 1)
     }
   }, [])
+
+  // Monitor pipeline state changes: busy -> idle
+  // Declared after reloadPopularLabels/bumpDropdownData because it calls them.
+  useEffect(() => {
+    if (prevPipelineBusy.current === true && pipelineBusy === false) {
+      console.log('Pipeline changed from busy to idle, refreshing graph and popular labels')
+      shouldRefreshPopularLabelsRef.current = true
+
+      // Ingestion just finished, so the graph on screen is now stale. Pull the
+      // new data instead of waiting for the user to press refresh — reaching
+      // idle from busy is exactly the moment new nodes become available.
+      // reloadPopularLabels() clears the flag it just set, so the label
+      // dropdown restocks in the same pass.
+      useGraphStore.getState().triggerGraphRefresh()
+      reloadPopularLabels()
+        .then(() => bumpDropdownData({ forceSelectKey: true }))
+        .catch((err) => console.error('Failed to refresh labels after ingestion:', err))
+    }
+    prevPipelineBusy.current = pipelineBusy
+  }, [pipelineBusy, reloadPopularLabels, bumpDropdownData])
 
   const fetchData = useCallback(
     async (query?: string): Promise<string[]> => {
@@ -252,10 +263,13 @@ const GraphLabels = () => {
       >
         <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
       </Button>
-      <div className="w-full min-w-[280px] max-w-[500px]">
+      {/* The 280/300px minimums overflowed a phone once the refresh button and
+          search bar sat beside this. Let it shrink on small screens and only
+          claim the comfortable width from sm up. */}
+      <div className="w-full min-w-0 max-w-[500px] sm:min-w-[280px]">
         <AsyncSelect<string>
           key={selectKey} // Force re-render when data changes
-          className="min-w-[300px]"
+          className="min-w-0 sm:min-w-[300px]"
           triggerClassName="max-h-8 w-full overflow-hidden"
           searchInputClassName="max-h-8"
           triggerTooltip={t('graphPanel.graphLabels.selectTooltip')}

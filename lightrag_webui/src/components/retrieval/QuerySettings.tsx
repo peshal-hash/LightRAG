@@ -73,14 +73,19 @@ export default function QuerySettings() {
   )
 
   return (
-    <Card className="flex shrink-0 flex-col w-[280px]">
+    // Full width when stacked under the chat on a phone; a fixed 280px column
+    // only once the layout goes side-by-side at lg.
+    <Card className="flex w-full shrink-0 flex-col lg:w-[280px]">
       <CardHeader className="px-4 pt-4 pb-2">
         <CardTitle>{t('retrievePanel.querySettings.parametersTitle')}</CardTitle>
         <CardDescription className="sr-only">{t('retrievePanel.querySettings.parametersDescription')}</CardDescription>
       </CardHeader>
       <CardContent className="m-0 flex grow flex-col p-0 text-xs">
-        <div className="relative size-full">
-          <div className="absolute inset-0 flex flex-col gap-2 overflow-auto px-2 pr-2">
+        {/* When stacked on a phone this must flow at its natural height — the
+            absolute/inset-0 scroller only has a height to fill inside the
+            side-by-side column, and would otherwise collapse to nothing. */}
+        <div className="relative w-full lg:size-full">
+          <div className="flex flex-col gap-2 px-2 pr-2 pb-2 lg:absolute lg:inset-0 lg:overflow-auto lg:pb-0">
             {/* User Prompt - Moved to top for better dropdown space */}
             <>
               <TooltipProvider>

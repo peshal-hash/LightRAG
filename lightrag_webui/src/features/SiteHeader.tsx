@@ -22,7 +22,9 @@ function NavigationTab({ value, currentTab, children }: NavigationTabProps) {
       value={value}
       className={cn(
         'cursor-pointer px-2 py-1 transition-all',
-        currentTab === value ? '!bg-[hsl(204_78%_47%)] !text-zinc-50' : 'hover:bg-background/60'
+        currentTab === value
+          ? '!bg-primary !text-primary-foreground'
+          : 'hover:bg-accent/60'
       )}
     >
       {children}
@@ -35,8 +37,11 @@ function TabsNavigation() {
   const { t } = useTranslation()
 
   return (
-    <div className="flex h-8 self-center">
-      <TabsList className="h-full gap-2">
+    // The tab labels are translated, so their combined width is not knowable
+    // up front. Allow horizontal scrolling instead of letting them overflow the
+    // header on a phone; the scrollbar is hidden so it reads as a plain row.
+    <div className="flex h-8 max-w-full self-center overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <TabsList className="h-full w-max gap-1 sm:gap-2">
         <NavigationTab value="documents" currentTab={currentTab}>
           {t('header.documents')}
         </NavigationTab>
@@ -70,14 +75,18 @@ export default function SiteHeader() {
   }
 
   return (
-    <header className="border-border/40 bg-background/95 supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50 flex h-10 w-full border-b px-4 backdrop-blur">
-    <div className="min-w-[200px]" />
+    <header className="border-border/40 bg-background/95 supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50 flex h-10 w-full border-b px-2 backdrop-blur sm:px-4">
+      {/* Both side rails are currently empty and exist only to keep the tabs
+          optically centred. Two fixed 200px rails ate 400px of a 375px phone
+          and pushed the tabs off screen, so they only reserve space once there
+          is room for it. */}
+      <div className="hidden sm:block sm:min-w-[200px]" />
 
-      <div className="flex h-10 flex-1 items-center justify-center">
+      <div className="flex h-10 min-w-0 flex-1 items-center justify-center">
         <TabsNavigation />
       </div>
 
-      <nav className="w-[200px] flex items-center justify-end">
+      <nav className="hidden items-center justify-end sm:flex sm:w-[200px]">
         <div className="flex items-center gap-2">
         </div>
       </nav>

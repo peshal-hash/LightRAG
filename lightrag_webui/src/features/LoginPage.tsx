@@ -2,6 +2,9 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/stores/state'
 import { useSettingsStore } from '@/stores/settings'
+import { useGraphStore } from '@/stores/graph'
+import { defaultQueryLabel } from '@/lib/constants'
+import { SearchHistoryManager } from '@/utils/SearchHistoryManager'
 import { loginToServer, getAuthStatus } from '@/api/lightrag'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
@@ -108,6 +111,14 @@ const LoginPage = () => {
         console.log('Different user logging in, clearing chat history')
         // Directly clear chat history instead of setting a flag
         useSettingsStore.getState().setRetrievalHistory([])
+
+        // Search history lives in localStorage, so it outlives the session and
+        // would otherwise show the previous account's labels. Reset the graph
+        // view too, so the new user gets their own graph without having to
+        // press the refresh button.
+        SearchHistoryManager.clearHistory()
+        useSettingsStore.getState().setQueryLabel(defaultQueryLabel)
+        useGraphStore.getState().triggerGraphRefresh()
       }
 
       // Update previous username
@@ -145,7 +156,9 @@ const LoginPage = () => {
   }
 
   return (
-    <div className="flex h-screen w-screen items-center justify-center bg-gradient-to-br from-emerald-50 to-teal-100 dark:from-gray-900 dark:to-gray-800">
+    // Brand light teal (#c2e2e5) wash instead of the stock emerald gradient.
+    // Scrolls rather than clipping the card on short/landscape phones.
+    <div className="flex min-h-screen w-screen items-center justify-center overflow-y-auto bg-[hsl(185_40%_95%)] py-8">
       <div className="absolute top-4 right-4 flex items-center gap-2">
         <AppSettings className="bg-white/30 dark:bg-gray-800/30 backdrop-blur-sm rounded-md" />
       </div>

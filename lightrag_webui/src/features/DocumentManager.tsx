@@ -1122,8 +1122,10 @@ export default function DocumentManager() {
         <CardTitle className="text-lg">{t('documentPanel.documentManager.title')}</CardTitle>
       </CardHeader>
       <CardContent className="flex-1 flex flex-col min-h-0 overflow-auto">
-        <div className="flex justify-between items-center gap-2 mb-2">
-          <div className="flex gap-2">
+        {/* Wraps instead of overflowing: the three button groups do not fit on
+            one line on a phone. */}
+        <div className="flex flex-wrap justify-between items-center gap-2 mb-2">
+          <div className="flex flex-wrap gap-2">
             <Button
               variant="outline"
               onClick={scanDocuments}
@@ -1161,7 +1163,7 @@ export default function DocumentManager() {
             />
           )}
 
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             {isSelectionMode && (
               <DeleteDocumentsDialog
                 selectedDocIds={selectedDocIds}
@@ -1198,16 +1200,22 @@ export default function DocumentManager() {
 
         <Card className="flex-1 flex flex-col border rounded-md min-h-0 mb-2">
           <CardHeader className="flex-none py-2 px-4">
-            <div className="flex justify-between items-center">
+            <div className="flex flex-wrap justify-between items-center gap-2">
               <CardTitle>{t('documentPanel.documentManager.uploadedTitle')}</CardTitle>
-              <div className="flex items-center gap-2">
-                <div className="flex gap-1" dir={i18n.dir()}>
+              <div className="flex min-w-0 items-center gap-2">
+                {/* Six status filters never fit on one phone line; scroll them
+                    sideways rather than letting them break the card width. */}
+                <div
+                  className="flex max-w-full gap-1 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                  dir={i18n.dir()}
+                >
                   <Button
                     size="sm"
                     variant={statusFilter === 'all' ? 'secondary' : 'outline'}
                     onClick={() => handleStatusFilterChange('all')}
                     disabled={isRefreshing}
                     className={cn(
+                      'shrink-0',
                       statusFilter === 'all' && 'bg-gray-100 dark:bg-gray-900 font-medium border border-gray-400 dark:border-gray-500 shadow-sm'
                     )}
                   >
@@ -1219,6 +1227,7 @@ export default function DocumentManager() {
                     onClick={() => handleStatusFilterChange('processed')}
                     disabled={isRefreshing}
                     className={cn(
+                      'shrink-0',
                       processedCount > 0 ? 'text-green-600' : 'text-gray-500',
                       statusFilter === 'processed' && 'bg-green-100 dark:bg-green-900/30 font-medium border border-green-400 dark:border-green-600 shadow-sm'
                     )}
@@ -1231,6 +1240,7 @@ export default function DocumentManager() {
                     onClick={() => handleStatusFilterChange('preprocessed')}
                     disabled={isRefreshing}
                     className={cn(
+                      'shrink-0',
                       preprocessedCount > 0 ? 'text-purple-600' : 'text-gray-500',
                       statusFilter === 'preprocessed' && 'bg-purple-100 dark:bg-purple-900/30 font-medium border border-purple-400 dark:border-purple-600 shadow-sm'
                     )}
@@ -1243,6 +1253,7 @@ export default function DocumentManager() {
                     onClick={() => handleStatusFilterChange('processing')}
                     disabled={isRefreshing}
                     className={cn(
+                      'shrink-0',
                       processingCount > 0 ? 'text-blue-600' : 'text-gray-500',
                       statusFilter === 'processing' && 'bg-blue-100 dark:bg-blue-900/30 font-medium border border-blue-400 dark:border-blue-600 shadow-sm'
                     )}
@@ -1255,6 +1266,7 @@ export default function DocumentManager() {
                     onClick={() => handleStatusFilterChange('pending')}
                     disabled={isRefreshing}
                     className={cn(
+                      'shrink-0',
                       pendingCount > 0 ? 'text-yellow-600' : 'text-gray-500',
                       statusFilter === 'pending' && 'bg-yellow-100 dark:bg-yellow-900/30 font-medium border border-yellow-400 dark:border-yellow-600 shadow-sm'
                     )}
@@ -1267,6 +1279,7 @@ export default function DocumentManager() {
                     onClick={() => handleStatusFilterChange('failed')}
                     disabled={isRefreshing}
                     className={cn(
+                      'shrink-0',
                       failedCount > 0 ? 'text-red-600' : 'text-gray-500',
                       statusFilter === 'failed' && 'bg-red-100 dark:bg-red-900/30 font-medium border border-red-400 dark:border-red-600 shadow-sm'
                     )}
@@ -1320,8 +1333,11 @@ export default function DocumentManager() {
             )}
             {docs && (
               <div className="absolute inset-0 flex flex-col p-0">
-                <div className="absolute inset-[-1px] flex flex-col p-0 border rounded-md border-gray-200 dark:border-gray-700 overflow-hidden">
-                  <Table className="w-full">
+                {/* Eight columns cannot compress into a phone width without
+                    becoming unreadable, so the table keeps a usable minimum
+                    and scrolls sideways inside its own box instead. */}
+                <div className="absolute inset-[-1px] flex flex-col p-0 border rounded-md border-gray-200 dark:border-gray-700 overflow-auto">
+                  <Table className="w-full min-w-[880px]">
                     <TableHeader className="sticky top-0 bg-background z-10 shadow-sm">
                       <TableRow className="border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/75 shadow-[inset_0_-1px_0_rgba(0,0,0,0.1)]">
                         <TableHead

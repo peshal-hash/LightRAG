@@ -66,7 +66,9 @@ const PropertiesView = () => {
     return <></>
   }
   return (
-    <div className="bg-background/80 max-w-xs rounded-lg border-2 p-2 text-xs backdrop-blur-lg">
+    // Fills the docked strip on a phone; keeps the narrow floating card on
+    // larger screens where it overlays the canvas.
+    <div className="bg-background/80 w-full rounded-lg border-2 p-2 text-xs backdrop-blur-lg sm:max-w-xs">
       {currentType == 'node' ? (
         <NodePropertiesView node={currentElement as any} />
       ) : (
@@ -278,7 +280,7 @@ const NodePropertiesView = ({ node }: { node: NodeType }) => {
   return (
     <div className="flex flex-col gap-2">
       <div className="flex justify-between items-center">
-        <h3 className="text-md pl-1 font-bold tracking-wide text-blue-700">{t('graphPanel.propertiesView.node.title')}</h3>
+        <h3 className="text-md text-primary pl-1 font-bold tracking-wide">{t('graphPanel.propertiesView.node.title')}</h3>
         <div className="flex gap-3">
           <Button
             size="icon"
