@@ -31,6 +31,13 @@ class NavigationService {
     graphStore.setSigmaInstance(null);
     graphStore.setIsFetching(false); // Reset isFetching state to prevent data loading issues
 
+    // Clearing graphDataFetchAttempted above is not enough on its own: the
+    // fetch effect only re-runs when one of its dependencies changes, and the
+    // flag is not one of them. Bump the version counter so the next user's
+    // graph is actually fetched rather than showing the previous user's data
+    // until the refresh button is pressed.
+    graphStore.triggerGraphRefresh();
+
     // Reset backend state
     useBackendState.getState().clear();
 

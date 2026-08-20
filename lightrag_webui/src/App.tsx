@@ -196,10 +196,12 @@ function App() {
           </div>
         ) : (
           // Main content after initialization
-          <main className="flex h-screen w-screen overflow-hidden">
+          /* w-screen ignores the vertical scrollbar's width and can force a
+             horizontal scrollbar; w-full tracks the actual viewport instead. */
+          <main className="flex h-screen w-full overflow-hidden">
             <Tabs
               defaultValue={currentTab}
-              className="!m-0 flex grow flex-col !p-0 overflow-hidden"
+              className="!m-0 flex min-w-0 grow flex-col !p-0 overflow-hidden"
               onValueChange={handleTabChange}
             >
               <SiteHeader />

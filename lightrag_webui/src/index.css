@@ -8,78 +8,129 @@
 
 @custom-variant dark (&:is(.dark *));
 
-:root {
-  --background: hsl(0 0% 100%);
-  --foreground: hsl(240 10% 3.9%);
-  --card: hsl(0 0% 100%);
-  --card-foreground: hsl(240 10% 3.9%);
-  --popover: hsl(0 0% 100%);
-  --popover-foreground: hsl(240 10% 3.9%);
-  --primary: hsl(204 78% 47%);
-  --primary-foreground: hsl(0 0% 98%);
-  --secondary: hsl(240 4.8% 95.9%);
-  --secondary-foreground: hsl(240 5.9% 10%);
-  --muted: hsl(240 4.8% 95.9%);
-  --muted-foreground: hsl(240 3.8% 46.1%);
-  --accent: hsl(240 4.8% 95.9%);
-  --accent-foreground: hsl(240 5.9% 10%);
-  --destructive: hsl(0 84.2% 60.2%);
-  --destructive-foreground: hsl(0 0% 98%);
-  --border: hsl(240 5.9% 90%);
-  --input: hsl(240 5.9% 90%);
-  --ring: hsl(240 10% 3.9%);
-  --chart-1: hsl(12 76% 61%);
-  --chart-2: hsl(173 58% 39%);
-  --chart-3: hsl(197 37% 24%);
-  --chart-4: hsl(43 74% 66%);
-  --chart-5: hsl(27 87% 67%);
-  --radius: 0.6rem;
-  --sidebar-background: hsl(0 0% 98%);
-  --sidebar-foreground: hsl(240 5.3% 26.1%);
-  --sidebar-primary: hsl(240 5.9% 10%);
-  --sidebar-primary-foreground: hsl(0 0% 98%);
-  --sidebar-accent: hsl(240 4.8% 95.9%);
-  --sidebar-accent-foreground: hsl(240 5.9% 10%);
-  --sidebar-border: hsl(220 13% 91%);
-  --sidebar-ring: hsl(217.2 91.2% 59.8%);
+/* Nexopta brand typeface, self-hosted so the UI renders identically offline
+ * and in air-gapped deployments. Montserrat ships no 800 weight, so any
+ * font-extrabold utility synthesises from 700. */
+@font-face {
+  font-family: 'Montserrat';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('./assets/fonts/montserrat-v26-latin-400.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Montserrat';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('./assets/fonts/montserrat-v26-latin-500.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Montserrat';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('./assets/fonts/montserrat-v26-latin-600.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Montserrat';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('./assets/fonts/montserrat-v26-latin-700.woff2') format('woff2');
 }
 
-.dark {
+/* Nexopta brand palette
+ * teal #179da6 · dark grey #373737 · light teal #c2e2e5 · light grey #d9d9d9
+ *
+ * --primary is #12818a, one step darker than the brand teal. Buttons render
+ * white text on --primary, and #179da6 behind white is only 3.28:1 (WCAG AA
+ * wants 4.5:1) while #12818a reaches 4.63:1 and reads as the same colour.
+ * The pure brand teal is kept as --brand-teal for fills and accents that do
+ * not carry small text. This mirrors the approach in frontend/src/App.css.
+ */
+:root {
   --background: hsl(0 0% 100%);
-  --foreground: hsl(240 10% 3.9%);
+  --foreground: hsl(0 0% 22%); /* #373737 */
   --card: hsl(0 0% 100%);
-  --card-foreground: hsl(240 10% 3.9%);
+  --card-foreground: hsl(0 0% 22%);
   --popover: hsl(0 0% 100%);
-  --popover-foreground: hsl(240 10% 3.9%);
-  --primary: hsl(204 78% 47%);
-  --primary-foreground: hsl(0 0% 98%);
-  --secondary: hsl(240 4.8% 95.9%);
-  --secondary-foreground: hsl(240 5.9% 10%);
-  --muted: hsl(240 4.8% 95.9%);
-  --muted-foreground: hsl(240 3.8% 46.1%);
-  --accent: hsl(240 4.8% 95.9%);
-  --accent-foreground: hsl(240 5.9% 10%);
+  --popover-foreground: hsl(0 0% 22%);
+  --brand-teal: hsl(184 76% 37%); /* #179da6 — pure brand teal */
+  --primary: hsl(185 77% 31%); /* #12818a — AA-safe behind white text */
+  --primary-foreground: hsl(0 0% 100%);
+  --secondary: hsl(185 40% 95%);
+  --secondary-foreground: hsl(0 0% 22%);
+  --muted: hsl(0 0% 96%);
+  --muted-foreground: hsl(0 0% 40%);
+  --accent: hsl(185 40% 83%); /* #c2e2e5 */
+  --accent-foreground: hsl(0 0% 22%);
   --destructive: hsl(0 84.2% 60.2%);
   --destructive-foreground: hsl(0 0% 98%);
-  --border: hsl(240 5.9% 90%);
-  --input: hsl(240 5.9% 90%);
-  --ring: hsl(240 10% 3.9%);
-  --chart-1: hsl(12 76% 61%);
-  --chart-2: hsl(173 58% 39%);
-  --chart-3: hsl(197 37% 24%);
+  --border: hsl(0 0% 85%); /* #d9d9d9 */
+  --input: hsl(0 0% 85%);
+  --ring: hsl(184 76% 37%);
+  --chart-1: hsl(184 76% 37%);
+  --chart-2: hsl(185 45% 60%);
+  --chart-3: hsl(0 0% 22%);
   --chart-4: hsl(43 74% 66%);
-  --chart-5: hsl(27 87% 67%);
+  --chart-5: hsl(197 37% 24%);
   --radius: 0.6rem;
   --sidebar-background: hsl(0 0% 98%);
-  --sidebar-foreground: hsl(240 5.3% 26.1%);
-  --sidebar-primary: hsl(240 5.9% 10%);
-  --sidebar-primary-foreground: hsl(0 0% 98%);
-  --sidebar-accent: hsl(240 4.8% 95.9%);
-  --sidebar-accent-foreground: hsl(240 5.9% 10%);
-  --sidebar-border: hsl(220 13% 91%);
-  --sidebar-ring: hsl(217.2 91.2% 59.8%);}
+  --sidebar-foreground: hsl(0 0% 22%);
+  --sidebar-primary: hsl(185 77% 31%);
+  --sidebar-primary-foreground: hsl(0 0% 100%);
+  --sidebar-accent: hsl(185 40% 93%);
+  --sidebar-accent-foreground: hsl(0 0% 22%);
+  --sidebar-border: hsl(0 0% 85%);
+  --sidebar-ring: hsl(184 76% 37%);
+}
+
+/* This block already mirrored :root before the rebrand — LightRAG ships a
+ * light-only look and the dark class is deliberately a no-op rather than a
+ * second palette. Kept identical so the brand values stay in one place; turning
+ * it into a real dark theme is a separate design decision. */
+.dark {
+  --background: hsl(0 0% 100%);
+  --foreground: hsl(0 0% 22%);
+  --card: hsl(0 0% 100%);
+  --card-foreground: hsl(0 0% 22%);
+  --popover: hsl(0 0% 100%);
+  --popover-foreground: hsl(0 0% 22%);
+  --brand-teal: hsl(184 76% 37%);
+  --primary: hsl(185 77% 31%);
+  --primary-foreground: hsl(0 0% 100%);
+  --secondary: hsl(185 40% 95%);
+  --secondary-foreground: hsl(0 0% 22%);
+  --muted: hsl(0 0% 96%);
+  --muted-foreground: hsl(0 0% 40%);
+  --accent: hsl(185 40% 83%);
+  --accent-foreground: hsl(0 0% 22%);
+  --destructive: hsl(0 84.2% 60.2%);
+  --destructive-foreground: hsl(0 0% 98%);
+  --border: hsl(0 0% 85%);
+  --input: hsl(0 0% 85%);
+  --ring: hsl(184 76% 37%);
+  --chart-1: hsl(184 76% 37%);
+  --chart-2: hsl(185 45% 60%);
+  --chart-3: hsl(0 0% 22%);
+  --chart-4: hsl(43 74% 66%);
+  --chart-5: hsl(197 37% 24%);
+  --radius: 0.6rem;
+  --sidebar-background: hsl(0 0% 98%);
+  --sidebar-foreground: hsl(0 0% 22%);
+  --sidebar-primary: hsl(185 77% 31%);
+  --sidebar-primary-foreground: hsl(0 0% 100%);
+  --sidebar-accent: hsl(185 40% 93%);
+  --sidebar-accent-foreground: hsl(0 0% 22%);
+  --sidebar-border: hsl(0 0% 85%);
+  --sidebar-ring: hsl(184 76% 37%);
+}
 
 @theme inline {
+  --font-sans: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI',
+    Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
+  --color-brand-teal: var(--brand-teal);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -126,7 +177,7 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans;
   }
 }
 
@@ -136,12 +187,16 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background-color: hsl(0 0% 80%);
+  background-color: hsl(0 0% 85%); /* #d9d9d9 — brand light grey */
   border-radius: 5px;
 }
 
+::-webkit-scrollbar-thumb:hover {
+  background-color: hsl(185 40% 83%); /* #c2e2e5 */
+}
+
 ::-webkit-scrollbar-track {
-  background-color: hsl(0 0% 95%);
+  background-color: hsl(0 0% 96%);
 }
 
 .dark {
